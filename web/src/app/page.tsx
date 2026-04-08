@@ -100,55 +100,87 @@ export default async function Home({
   const { summary, sections } = dashboard.data;
 
   return (
-    <main className="page-shell" id="top">
-        <section className="hero-panel">
-          <div className="flex items-start justify-between gap-3">
-            <div className="space-y-2">
-              <p className="eyebrow">Panel del prestamista</p>
-              <h1 className="text-[2rem] font-semibold leading-tight tracking-tight text-white">
-                {formatCurrency(summary.totalCollectibleToday)}
-              </h1>
-              <p className="max-w-[18rem] text-sm leading-6 text-white/78">
-                Total cobrable hoy entre vencimientos del dia y cartera atrasada.
-              </p>
-            </div>
-            <div className="rounded-2xl border border-white/15 bg-white/10 px-3 py-2 text-right">
-              <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-white/65">
-                Fecha
-              </p>
-              <p className="mt-1 text-sm font-medium text-white">
-                {formatLongDate(dashboard.data.date)}
-              </p>
-            </div>
+    <main className="page-shell page-shell-home" id="top">
+      <section className="home-hero">
+        <div className="home-hero-copy">
+          <p className="home-kicker">Resumen del dia</p>
+          <h1 className="home-title">Buenos dias</h1>
+          <p className="home-subtitle">
+            Controla el cobro del dia y detecta rapido que cartera requiere
+            seguimiento.
+          </p>
+        </div>
+
+        <div className="home-hero-balance">
+          <div>
+            <p className="eyebrow">Cobrable hoy</p>
+            <p className="home-hero-amount">
+              {formatCurrency(summary.totalCollectibleToday)}
+            </p>
+            <p className="home-hero-meta">
+              Vence hoy {formatCurrency(summary.dueTodayAmount)} · Atrasado{" "}
+              {formatCurrency(summary.overdueAmount)}
+            </p>
           </div>
+          <div className="home-hero-date-card">
+            <p className="home-hero-date-label">Fecha de corte</p>
+            <p className="home-hero-date-value">
+              {formatLongDate(dashboard.data.date)}
+            </p>
+          </div>
+        </div>
 
-          <form className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto]">
-            <label className="field">
-              <span className="field-label">Fecha de corte</span>
-              <input
-                className="field-input"
-                type="date"
-                name="date"
-                defaultValue={date}
-                max={today}
-              />
-            </label>
-            <label className="field">
-              <span className="field-label">Prestamista</span>
-              <input
-                className="field-input font-mono text-xs"
-                type="text"
-                name="lenderId"
-                defaultValue={lenderId}
-              />
-            </label>
-            <button className="cta-button" type="submit">
-              Actualizar
-            </button>
-          </form>
-        </section>
+        <div className="home-hero-accent" aria-hidden="true">
+          <span className="home-hero-accent-stroke home-hero-accent-stroke-brand" />
+          <span className="home-hero-accent-stroke home-hero-accent-stroke-sun" />
+          <span className="home-hero-accent-stroke home-hero-accent-stroke-sky" />
+        </div>
+      </section>
 
-        <section className="grid grid-cols-2 gap-3">
+      <section className="home-toolbar-panel">
+        <div className="home-section-heading">
+          <div>
+            <p className="eyebrow">Control del corte</p>
+            <h2 className="section-title">Actualiza la foto del negocio</h2>
+          </div>
+        </div>
+
+        <form className="home-toolbar-grid">
+          <label className="surface-field">
+            <span className="surface-label">Fecha de corte</span>
+            <input
+              className="surface-input"
+              type="date"
+              name="date"
+              defaultValue={date}
+              max={today}
+            />
+          </label>
+          <label className="surface-field">
+            <span className="surface-label">Prestamista</span>
+            <input
+              className="surface-input font-mono text-xs"
+              type="text"
+              name="lenderId"
+              defaultValue={lenderId}
+            />
+          </label>
+          <button className="surface-button" type="submit">
+            Actualizar
+          </button>
+        </form>
+      </section>
+
+      <section className="home-section-block">
+        <div className="home-section-heading">
+          <div>
+            <p className="eyebrow">Pulso operativo</p>
+            <h2 className="section-title">Lo que importa hoy</h2>
+          </div>
+          <p className="home-section-note">Vista rapida del negocio activo</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
           <MetricCard
             label="Vence hoy"
             value={formatCurrency(summary.dueTodayAmount)}
@@ -185,72 +217,74 @@ export default async function Home({
             meta={`${summary.todayPaymentsCount} pago(s)`}
             tone="neutral"
           />
-        </section>
+        </div>
+      </section>
 
-        <section className="panel gap-4" id="due-today">
-          <div className="flex items-end justify-between gap-3">
-            <div>
-              <p className="eyebrow">Cobros de hoy</p>
-              <h2 className="section-title">Vencen hoy</h2>
-            </div>
-            <p className="text-sm text-[var(--muted)]">
-              {sections.dueToday.length} registro(s)
-            </p>
+      <section className="home-section-block" id="due-today">
+        <div className="home-section-heading">
+          <div>
+            <p className="eyebrow">Cobros de hoy</p>
+            <h2 className="section-title">Vencen hoy</h2>
           </div>
+          <p className="home-section-note">
+            {sections.dueToday.length} registro(s)
+          </p>
+        </div>
 
-          {sections.dueToday.length > 0 ? (
-            <div className="space-y-3">
-              {sections.dueToday.map((item) => (
-                <DashboardLoanItem
-                  key={item.loanId}
-                  item={item}
-                  kind="dueToday"
-                  href={`/loans/${item.loanId}${buildQueryString({
-                    lenderId,
-                    date,
-                    origin: "dashboard",
-                    clientId: item.clientId,
-                  })}`}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="empty-panel">
-              No hay vencimientos programados para esta fecha.
-            </div>
-          )}
-        </section>
-
-        <section className="panel gap-4" id="overdue">
-          <div className="flex items-end justify-between gap-3">
-            <div>
-              <p className="eyebrow">Seguimiento</p>
-              <h2 className="section-title">Atrasados</h2>
-            </div>
+        {sections.dueToday.length > 0 ? (
+          <div className="space-y-3">
+            {sections.dueToday.map((item) => (
+              <DashboardLoanItem
+                key={item.loanId}
+                item={item}
+                kind="dueToday"
+                href={`/loans/${item.loanId}${buildQueryString({
+                  lenderId,
+                  date,
+                  origin: "dashboard",
+                  clientId: item.clientId,
+                })}`}
+              />
+            ))}
           </div>
+        ) : (
+          <div className="empty-panel">
+            No hay vencimientos programados para esta fecha.
+          </div>
+        )}
+      </section>
 
-          {sections.overdue.length > 0 ? (
-            <div className="space-y-3">
-              {sections.overdue.map((item) => (
-                <DashboardLoanItem
-                  key={item.loanId}
-                  item={item}
-                  kind="overdue"
-                  href={`/loans/${item.loanId}${buildQueryString({
-                    lenderId,
-                    date,
-                    origin: "dashboard",
-                    clientId: item.clientId,
-                  })}`}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="empty-panel">
-              No hay cartera vencida para esta fecha.
-            </div>
-          )}
-        </section>
+      <section className="home-section-block" id="overdue">
+        <div className="home-section-heading">
+          <div>
+            <p className="eyebrow">Seguimiento</p>
+            <h2 className="section-title">Atrasados</h2>
+          </div>
+          <p className="home-section-note">Cobro que requiere atencion</p>
+        </div>
+
+        {sections.overdue.length > 0 ? (
+          <div className="space-y-3">
+            {sections.overdue.map((item) => (
+              <DashboardLoanItem
+                key={item.loanId}
+                item={item}
+                kind="overdue"
+                href={`/loans/${item.loanId}${buildQueryString({
+                  lenderId,
+                  date,
+                  origin: "dashboard",
+                  clientId: item.clientId,
+                })}`}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="empty-panel">
+            No hay cartera vencida para esta fecha.
+          </div>
+        )}
+      </section>
     </main>
   );
 }

@@ -26,61 +26,65 @@ export function DashboardLoanItem(props: DashboardLoanItemProps) {
     : formatCurrency(props.item.outstandingBalance);
 
   return (
-    <Link
-      className="block rounded-[1.4rem] border border-[var(--line)] bg-white/80 p-4 shadow-[0_12px_30px_rgba(29,42,48,0.06)] transition-transform duration-200 hover:-translate-y-[1px]"
-      href={props.href}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="space-y-1">
-          <p className="text-base font-semibold text-[var(--foreground)]">
-            {item.clientName}
-          </p>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
-            <span className="rounded-full bg-[var(--surface-strong)] px-2.5 py-1 font-medium text-[var(--foreground)]">
+    <Link className="dashboard-loan-card" href={props.href}>
+      <div className="dashboard-loan-card-head">
+        <div className="dashboard-loan-card-copy">
+          <p className="dashboard-loan-card-name">{item.clientName}</p>
+          <div className="dashboard-loan-card-meta-row">
+            <span className="dashboard-loan-card-type">
               {formatLoanType(item.type)}
             </span>
-            <span className="font-mono uppercase tracking-[0.12em]">
-              {item.loanId.slice(0, 8)}
-            </span>
+            <span className="dashboard-loan-card-id">{item.loanId.slice(0, 8)}</span>
           </div>
         </div>
 
-        <div
-          className={`rounded-full px-3 py-1 text-[0.72rem] font-semibold uppercase tracking-[0.12em] ${
-            isOverdue
-              ? "bg-[var(--danger-soft)] text-[var(--danger)]"
-              : "bg-[var(--brand-soft)] text-[var(--brand)]"
-          }`}
-        >
-          {statusLabel}
+        <div className="dashboard-loan-card-side">
+          <div
+            className={`dashboard-loan-card-status ${
+              isOverdue
+                ? "dashboard-loan-card-status-danger"
+                : "dashboard-loan-card-status-brand"
+            }`}
+          >
+            {statusLabel}
+          </div>
+          <span className="dashboard-loan-card-arrow" aria-hidden="true">
+            <svg viewBox="0 0 20 20" fill="none">
+              <path
+                d="M7.5 4.5L13 10L7.5 15.5"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-        <div className="rounded-2xl bg-[var(--surface)] p-3">
-          <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">
-            {isOverdue ? "Vencido" : "Monto del dia"}
-          </p>
-          <p className="mt-1 text-lg font-semibold text-[var(--foreground)]">
-            {formatCurrency(primaryAmount)}
-          </p>
-        </div>
+      <div className="dashboard-loan-card-amount-block">
+        <p className="dashboard-loan-card-label">
+          {isOverdue ? "Vencido" : "Monto del dia"}
+        </p>
+        <p className="dashboard-loan-card-amount">{formatCurrency(primaryAmount)}</p>
+      </div>
 
-        <div className="rounded-2xl bg-[var(--surface)] p-3">
-          <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">
-            Total cobrable
-          </p>
-          <p className="mt-1 text-lg font-semibold text-[var(--foreground)]">
+      <div className="dashboard-loan-card-stats">
+        <div className="dashboard-loan-card-stat">
+          <p className="dashboard-loan-card-stat-label">Total cobrable</p>
+          <p className="dashboard-loan-card-stat-value">
             {formatCurrency(item.totalCollectibleToday)}
           </p>
         </div>
+
+        <div className="dashboard-loan-card-stat">
+          <p className="dashboard-loan-card-stat-label">{secondaryLabel}</p>
+          <p className="dashboard-loan-card-stat-value">{secondaryValue}</p>
+        </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[var(--muted)]">
-        <span>Mora: {formatCurrency(item.penaltyPending)}</span>
-        <span>
-          {secondaryLabel}: {secondaryValue}
-        </span>
+      <div className="dashboard-loan-card-footer">
+        <span>Mora {formatCurrency(item.penaltyPending)}</span>
       </div>
     </Link>
   );
