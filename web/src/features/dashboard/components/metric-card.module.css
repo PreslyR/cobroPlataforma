@@ -1,0 +1,86 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.defaultVariant {
+  min-height: 8.8rem;
+  border: 1px solid color-mix(in srgb, var(--line) 84%, white 16%);
+  border-radius: 1.5rem;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 0.9rem;
+  box-shadow: 0 10px 24px rgba(19, 31, 37, 0.05);
+}
+
+.embeddedVariant {
+  min-height: 6.95rem;
+  border-radius: 1.15rem;
+  background: color-mix(in srgb, var(--surface) 92%, var(--surface-strong) 8%);
+  padding: 0.72rem 0.72rem 0.68rem;
+  box-shadow: inset 0 0 0 1px rgba(19, 31, 37, 0.04);
+}
+
+.pill {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.pillBrand {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+.pillDanger {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.pillWarning {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.pillSuccess {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.pillNeutral {
+  background: color-mix(in srgb, var(--surface-strong) 74%, white 26%);
+  color: var(--foreground);
+}
+
+.value {
+  font-size: 1.78rem;
+  line-height: 1.02;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--foreground);
+}
+
+.meta {
+  margin-top: auto;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.embeddedVariant .pill {
+  padding: 0.3rem 0.56rem;
+  font-size: 0.6rem;
+}
+
+.embeddedVariant .value {
+  font-size: 1.46rem;
+}
+
+.embeddedVariant .meta {
+  font-size: 0.76rem;
+  line-height: 1.25;
+}

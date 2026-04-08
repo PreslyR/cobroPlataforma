@@ -27,6 +27,7 @@ export type DashboardOverdueItem = {
 export type DashboardTodayResponse = {
   date: string;
   lenderId: string | null;
+  lenderName: string | null;
   summary: {
     activeLoans: number;
     dueTodayLoans: number;

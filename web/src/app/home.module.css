@@ -1,0 +1,259 @@
+.pageShellHome {
+  position: relative;
+  gap: 1.4rem;
+}
+
+.pageShellHome::before {
+  content: "";
+  position: absolute;
+  top: -1rem;
+  left: -1rem;
+  right: -1rem;
+  height: 22rem;
+  background: #ffffff;
+  z-index: 0;
+}
+
+.pageShellHome > * {
+  position: relative;
+  z-index: 1;
+}
+
+.homeHero {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+  padding: 0.3rem 0.1rem 0.2rem;
+}
+
+.homeHeroCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.homeTitle {
+  font-size: 2.5rem;
+  line-height: 0.98;
+  font-weight: 400;
+  letter-spacing: -0.04em;
+  color: var(--foreground);
+}
+
+.homeSubtitle {
+  max-width: 26rem;
+  font-size: 0.98rem;
+  line-height: 1.7;
+  color: var(--muted);
+}
+
+.homeHeroBalance {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  border: 1px solid color-mix(in srgb, var(--line) 82%, white 18%);
+  border-radius: 1.9rem;
+  background: rgba(255, 255, 255, 0.94);
+  padding: 1.15rem;
+  box-shadow: 0 18px 38px rgba(19, 31, 37, 0.08);
+  backdrop-filter: blur(18px);
+}
+
+.homeHeroAmount {
+  margin-top: 0.35rem;
+  font-size: 2.35rem;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--foreground);
+}
+
+.homeHeroMeta {
+  margin-top: 0.55rem;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.homeHeroDateCard {
+  width: fit-content;
+  min-width: 11rem;
+  border-radius: 1.3rem;
+  background: color-mix(in srgb, var(--surface) 82%, white 18%);
+  padding: 0.9rem 1rem;
+  box-shadow: inset 0 0 0 1px rgba(19, 31, 37, 0.05);
+}
+
+.homeHeroDateLabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.homeHeroDateValue {
+  margin-top: 0.35rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--foreground);
+}
+
+.homeHeroAccent {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  padding-right: 0.3rem;
+}
+
+.homeHeroAccentStroke {
+  display: inline-flex;
+  height: 0.7rem;
+  border-radius: 999px;
+}
+
+.homeHeroAccentStrokeBrand {
+  width: 3.8rem;
+  background: #47bddc;
+}
+
+.homeHeroAccentStrokeSun {
+  width: 5rem;
+  background: #ffd200;
+}
+
+.homeHeroAccentStrokeSky {
+  width: 4.4rem;
+  background: #ff8a42;
+}
+
+.homeSectionBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+}
+
+.homeSectionHeading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.9rem;
+}
+
+.homeSectionNote {
+  max-width: 9rem;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  text-align: right;
+  color: var(--muted);
+}
+
+.homeMetricsPanel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--line) 82%, white 18%);
+  border-radius: 1.85rem;
+  background: rgba(255, 255, 255, 0.88);
+  padding: 0.65rem;
+  box-shadow: 0 12px 26px rgba(19, 31, 37, 0.05);
+}
+
+.homeToolbarPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.72rem;
+  border-radius: 1.25rem;
+  background: rgba(255, 255, 255, 0.64);
+  padding: 0.75rem;
+  box-shadow: inset 0 0 0 1px rgba(19, 31, 37, 0.04);
+}
+
+.homeToolbarHeading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+
+.homeToolbarCopy {
+  font-size: 0.86rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.homeToolbarGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.65rem;
+}
+
+.homeToolbarPanel :global(.surface-field) {
+  gap: 0.32rem;
+}
+
+.homeToolbarPanel :global(.surface-label) {
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+}
+
+.homeToolbarPanel :global(.surface-input) {
+  min-height: 2.85rem;
+  border-radius: 0.95rem;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 0.75rem 0.9rem;
+}
+
+.homeToolbarGrid :global(.surface-button) {
+  width: 100%;
+  min-height: 2.85rem;
+  border-radius: 0.95rem;
+  padding: 0.72rem 0.95rem;
+}
+
+@media (min-width: 640px) {
+  .pageShellHome {
+    gap: 1.6rem;
+  }
+
+  .homeHero {
+    gap: 1.3rem;
+    padding-inline: 0.15rem;
+  }
+
+  .homeHeroBalance {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+
+  .homeToolbarGrid {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+  }
+
+  .homeToolbarGrid :global(.surface-button) {
+    width: auto;
+    min-width: 9rem;
+  }
+
+  .homeMetricsPanel {
+    gap: 0.75rem;
+    padding: 0.75rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .pageShellHome {
+    gap: 1.75rem;
+  }
+
+  .homeHero {
+    padding-top: 0.5rem;
+  }
+
+  .homeTitle {
+    font-size: 3rem;
+  }
+}

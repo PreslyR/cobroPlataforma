@@ -2,6 +2,7 @@ import { DashboardLoanItem } from "@/features/dashboard/components/dashboard-loa
 import { MetricCard } from "@/features/dashboard/components/metric-card";
 import { getDashboardToday } from "@/features/dashboard/lib/api";
 import { formatCurrency, formatLongDate } from "@/shared/lib/format";
+import styles from "./home.module.css";
 
 type SearchParams = Promise<{
   date?: string | string[];
@@ -100,52 +101,110 @@ export default async function Home({
   const { summary, sections } = dashboard.data;
 
   return (
-    <main className="page-shell page-shell-home" id="top">
-      <section className="home-hero">
-        <div className="home-hero-copy">
-          <p className="home-kicker">Resumen del dia</p>
-          <h1 className="home-title">Buenos dias</h1>
-          <p className="home-subtitle">
-            Controla el cobro del dia y detecta rapido que cartera requiere
-            seguimiento.
-          </p>
+    <main className={`page-shell ${styles.pageShellHome}`} id="top">
+      <section className={styles.homeHero}>
+        <div className={styles.homeHeroCopy}>
+          <h1 className={styles.homeTitle}>
+            Hola{dashboard.data.lenderName ? `, ${dashboard.data.lenderName}` : ""}
+          </h1>
+          <p className={styles.homeSubtitle}>Cobrable hoy y cartera por atender.</p>
         </div>
 
-        <div className="home-hero-balance">
+        <div className={styles.homeHeroBalance}>
           <div>
             <p className="eyebrow">Cobrable hoy</p>
-            <p className="home-hero-amount">
+            <p className={styles.homeHeroAmount}>
               {formatCurrency(summary.totalCollectibleToday)}
             </p>
-            <p className="home-hero-meta">
-              Vence hoy {formatCurrency(summary.dueTodayAmount)} · Atrasado{" "}
+            <p className={styles.homeHeroMeta}>
+              Vence hoy {formatCurrency(summary.dueTodayAmount)} | Atrasado{" "}
               {formatCurrency(summary.overdueAmount)}
             </p>
           </div>
-          <div className="home-hero-date-card">
-            <p className="home-hero-date-label">Fecha de corte</p>
-            <p className="home-hero-date-value">
+          <div className={styles.homeHeroDateCard}>
+            <p className={styles.homeHeroDateLabel}>Fecha de corte</p>
+            <p className={styles.homeHeroDateValue}>
               {formatLongDate(dashboard.data.date)}
             </p>
           </div>
         </div>
 
-        <div className="home-hero-accent" aria-hidden="true">
-          <span className="home-hero-accent-stroke home-hero-accent-stroke-brand" />
-          <span className="home-hero-accent-stroke home-hero-accent-stroke-sun" />
-          <span className="home-hero-accent-stroke home-hero-accent-stroke-sky" />
+        <div className={styles.homeHeroAccent} aria-hidden="true">
+          <span
+            className={`${styles.homeHeroAccentStroke} ${styles.homeHeroAccentStrokeBrand}`}
+          />
+          <span
+            className={`${styles.homeHeroAccentStroke} ${styles.homeHeroAccentStrokeSun}`}
+          />
+          <span
+            className={`${styles.homeHeroAccentStroke} ${styles.homeHeroAccentStrokeSky}`}
+          />
         </div>
       </section>
 
-      <section className="home-toolbar-panel">
-        <div className="home-section-heading">
+      <section className={styles.homeSectionBlock}>
+        <div className={styles.homeSectionHeading}>
           <div>
-            <p className="eyebrow">Control del corte</p>
-            <h2 className="section-title">Actualiza la foto del negocio</h2>
+            <p className="eyebrow">Pulso operativo</p>
+            <h2 className="section-title">Lo que importa hoy</h2>
           </div>
+          <p className={styles.homeSectionNote}>Vista rapida del negocio activo</p>
         </div>
 
-        <form className="home-toolbar-grid">
+        <div className={styles.homeMetricsPanel}>
+          <MetricCard
+            label="Vence hoy"
+            value={formatCurrency(summary.dueTodayAmount)}
+            meta={`${summary.dueTodayLoans} prestamo(s)`}
+            tone="brand"
+            variant="embedded"
+          />
+          <MetricCard
+            label="Atrasado"
+            value={formatCurrency(summary.overdueAmount)}
+            meta={`${summary.overdueLoans} prestamo(s)`}
+            tone="danger"
+            variant="embedded"
+          />
+          <MetricCard
+            label="Intereses del mes"
+            value={formatCurrency(summary.monthInterestIncome)}
+            meta={`Recaudo del mes ${formatCurrency(summary.monthCollectedAmount)}`}
+            tone="success"
+            variant="embedded"
+          />
+          <MetricCard
+            label="Mora pendiente"
+            value={formatCurrency(summary.penaltyPending)}
+            meta="Pendiente acumulada"
+            tone="warning"
+            variant="embedded"
+          />
+          <MetricCard
+            label="Prestamos activos"
+            value={String(summary.activeLoans)}
+            meta={`${summary.overdueLoans} atrasado(s)`}
+            tone="neutral"
+            variant="embedded"
+          />
+          <MetricCard
+            label="Recaudo del dia"
+            value={formatCurrency(summary.todayCollectedAmount)}
+            meta={`${summary.todayPaymentsCount} pago(s)`}
+            tone="neutral"
+            variant="embedded"
+          />
+        </div>
+      </section>
+
+      <section className={styles.homeToolbarPanel}>
+        <div className={styles.homeToolbarHeading}>
+          <p className="eyebrow">Fecha de corte</p>
+          <p className={styles.homeToolbarCopy}>Ajusta el dia de consulta.</p>
+        </div>
+
+        <form className={styles.homeToolbarGrid}>
+          <input type="hidden" name="lenderId" value={lenderId} />
           <label className="surface-field">
             <span className="surface-label">Fecha de corte</span>
             <input
@@ -156,77 +215,19 @@ export default async function Home({
               max={today}
             />
           </label>
-          <label className="surface-field">
-            <span className="surface-label">Prestamista</span>
-            <input
-              className="surface-input font-mono text-xs"
-              type="text"
-              name="lenderId"
-              defaultValue={lenderId}
-            />
-          </label>
           <button className="surface-button" type="submit">
             Actualizar
           </button>
         </form>
       </section>
 
-      <section className="home-section-block">
-        <div className="home-section-heading">
-          <div>
-            <p className="eyebrow">Pulso operativo</p>
-            <h2 className="section-title">Lo que importa hoy</h2>
-          </div>
-          <p className="home-section-note">Vista rapida del negocio activo</p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <MetricCard
-            label="Vence hoy"
-            value={formatCurrency(summary.dueTodayAmount)}
-            meta={`${summary.dueTodayLoans} prestamo(s)`}
-            tone="brand"
-          />
-          <MetricCard
-            label="Atrasado"
-            value={formatCurrency(summary.overdueAmount)}
-            meta={`${summary.overdueLoans} prestamo(s)`}
-            tone="danger"
-          />
-          <MetricCard
-            label="Intereses del mes"
-            value={formatCurrency(summary.monthInterestIncome)}
-            meta={`Recaudo del mes ${formatCurrency(summary.monthCollectedAmount)}`}
-            tone="success"
-          />
-          <MetricCard
-            label="Mora pendiente"
-            value={formatCurrency(summary.penaltyPending)}
-            meta="Pendiente acumulada"
-            tone="warning"
-          />
-          <MetricCard
-            label="Prestamos activos"
-            value={String(summary.activeLoans)}
-            meta={`${summary.overdueLoans} atrasado(s)`}
-            tone="neutral"
-          />
-          <MetricCard
-            label="Recaudo del dia"
-            value={formatCurrency(summary.todayCollectedAmount)}
-            meta={`${summary.todayPaymentsCount} pago(s)`}
-            tone="neutral"
-          />
-        </div>
-      </section>
-
-      <section className="home-section-block" id="due-today">
-        <div className="home-section-heading">
+      <section className={styles.homeSectionBlock} id="due-today">
+        <div className={styles.homeSectionHeading}>
           <div>
             <p className="eyebrow">Cobros de hoy</p>
             <h2 className="section-title">Vencen hoy</h2>
           </div>
-          <p className="home-section-note">
+          <p className={styles.homeSectionNote}>
             {sections.dueToday.length} registro(s)
           </p>
         </div>
@@ -254,13 +255,13 @@ export default async function Home({
         )}
       </section>
 
-      <section className="home-section-block" id="overdue">
-        <div className="home-section-heading">
+      <section className={styles.homeSectionBlock} id="overdue">
+        <div className={styles.homeSectionHeading}>
           <div>
             <p className="eyebrow">Seguimiento</p>
             <h2 className="section-title">Atrasados</h2>
           </div>
-          <p className="home-section-note">Cobro que requiere atencion</p>
+          <p className={styles.homeSectionNote}>Cobro que requiere atencion</p>
         </div>
 
         {sections.overdue.length > 0 ? (

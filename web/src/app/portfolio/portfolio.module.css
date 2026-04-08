@@ -1,0 +1,235 @@
+﻿.pageShell {
+  gap: 1.1rem;
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+}
+
+.heroHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.9rem;
+}
+
+.heroCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.32rem;
+}
+
+.heroTitle {
+  font-size: 2rem;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--foreground);
+}
+
+.heroSubtitle {
+  max-width: 24rem;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.heroDate {
+  width: fit-content;
+  min-width: 10rem;
+  border-radius: 1.15rem;
+  background: color-mix(in srgb, var(--surface) 86%, white 14%);
+  padding: 0.75rem 0.85rem;
+  box-shadow: inset 0 0 0 1px rgba(19, 31, 37, 0.05);
+}
+
+.heroDateLabel {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.heroDateValue {
+  margin-top: 0.28rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--foreground);
+}
+
+.summaryStrip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--line) 82%, white 18%);
+  border-radius: 1.45rem;
+  background: rgba(255, 255, 255, 0.88);
+  padding: 0.62rem;
+  box-shadow: 0 12px 26px rgba(19, 31, 37, 0.05);
+}
+
+.summaryCell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--surface) 88%, var(--surface-strong) 12%);
+  padding: 0.68rem 0.72rem;
+}
+
+.summaryLabel {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.summaryValue {
+  font-size: 1.42rem;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--foreground);
+}
+
+.controlsPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.72rem;
+  border-radius: 1.28rem;
+  background: rgba(255, 255, 255, 0.74);
+  padding: 0.82rem;
+  box-shadow: inset 0 0 0 1px rgba(19, 31, 37, 0.04);
+}
+
+.controlsHeading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.14rem;
+}
+
+.controlsCopy {
+  font-size: 0.84rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.controlsForm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.controlsBottomRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.6rem;
+}
+
+.controlsPanel :global(.surface-field) {
+  gap: 0.3rem;
+}
+
+.controlsPanel :global(.surface-label) {
+  font-size: 0.64rem;
+  letter-spacing: 0.08em;
+}
+
+.controlsPanel :global(.surface-input) {
+  min-height: 2.75rem;
+  border-radius: 0.92rem;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 0.72rem 0.88rem;
+}
+
+.controlsPanel :global(.surface-button) {
+  min-height: 2.75rem;
+  border-radius: 0.92rem;
+  padding: 0.72rem 0.92rem;
+}
+
+.filtersPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.filterGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.42rem;
+}
+
+.filterGroupLabel {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.chipsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.42rem;
+}
+
+.resultsSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.sectionHeading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.sectionNote {
+  max-width: 9rem;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  text-align: right;
+  color: var(--muted);
+}
+
+@media (max-width: 460px) {
+  .heroHeader {
+    flex-direction: column;
+  }
+
+  .heroDate {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .sectionHeading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .sectionNote {
+    max-width: none;
+    text-align: left;
+  }
+}
+
+@media (min-width: 640px) {
+  .hero {
+    gap: 1.1rem;
+  }
+
+  .controlsBottomRow {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .controlsPanel :global(.surface-button) {
+    min-width: 8.4rem;
+  }
+}

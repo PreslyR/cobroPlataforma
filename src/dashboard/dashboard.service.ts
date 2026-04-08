@@ -20,8 +20,21 @@ export class DashboardService {
     const monthStartKey = this.toDateKey(monthStartDate);
     const nextDate = this.addDaysUtc(asOfDate, 1);
 
-    const [dueToday, overdue, portfolio, monthInterestIncome, todayCollections] =
+    const [
+      lender,
+      dueToday,
+      overdue,
+      portfolio,
+      monthInterestIncome,
+      todayCollections,
+    ] =
       await Promise.all([
+        lenderId
+          ? this.prisma.lender.findUnique({
+              where: { id: lenderId },
+              select: { id: true, name: true },
+            })
+          : Promise.resolve(null),
         this.loansService.getDueToday(dateKey, lenderId),
         this.loansService.getOverdue(dateKey, lenderId),
         this.reportsService.getPortfolioSummary(dateKey, lenderId),
@@ -53,6 +66,7 @@ export class DashboardService {
     return {
       date: asOfDate,
       lenderId: lenderId ?? null,
+      lenderName: lender?.name ?? null,
       summary: {
         activeLoans: portfolio.totals.activeLoans,
         dueTodayLoans: dueToday.count,
