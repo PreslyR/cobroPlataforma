@@ -1,0 +1,224 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+
+// ===================================
+// ENUMS
+// ===================================
+
+enum UserRole {
+  ADMIN
+  CLIENT
+}
+
+enum LoanType {
+  FIXED_INSTALLMENTS
+  DAILY_INTEREST
+  MONTHLY_INTEREST
+}
+
+enum LoanStatus {
+  ACTIVE
+  PAID
+  DEFAULTED
+  CANCELLED
+}
+
+enum PaymentFrequency {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+}
+
+enum InstallmentStatus {
+  PENDING
+  PAID
+  LATE
+}
+
+enum EarlySettlementInterestMode {
+  FULL_MONTH
+  PRORATED_BY_DAYS
+}
+
+// ===================================
+// MODELS
+// ===================================
+
+// 1️⃣ PRESTAMISTA (Lender)
+// Representa a cada negocio / administrador principal
+model Lender {
+  id        String   @id @default(uuid())
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  users   User[]
+  clients Client[]
+  loans   Loan[]
+
+  @@map("lenders")
+}
+
+// 2️⃣ USUARIO (User)
+// Admins y clientes comparten tabla, se diferencian por rol
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  role         UserRole
+  lenderId     String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relaciones
+  lender Lender   @relation(fields: [lenderId], references: [id])
+  client Client?
+
+  @@map("users")
+}
+
+// 3️⃣ CLIENTE (Client)
+// Perfil financiero del cliente (separado del login)
+model Client {
+  id             String   @id @default(uuid())
+  lenderId       String
+  userId         String?  @unique
+  fullName       String
+  documentNumber String
+  phone          String?
+  address        String?
+  notes          String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relaciones
+  lender   Lender    @relation(fields: [lenderId], references: [id])
+  user     User?     @relation(fields: [userId], references: [id])
+  loans    Loan[]
+  payments Payment[]
+
+  @@map("clients")
+}
+
+// 4️⃣ PRÉSTAMO (Loan)
+// Entidad central del sistema
+model Loan {
+  id                  String           @id @default(uuid())
+  lenderId            String
+  clientId            String
+  type                LoanType
+  principalAmount     Float // capital inicial
+  currentPrincipal    Float // capital pendiente
+  monthlyInterestRate Float? // nullable, depende del tipo
+  installmentAmount   Float? // nullable, solo para FIXED_INSTALLMENTS
+  totalInstallments   Int? // nullable, solo para FIXED_INSTALLMENTS
+  paymentFrequency    PaymentFrequency
+  earlySettlementInterestMode EarlySettlementInterestMode @default(FULL_MONTH)
+  startDate           DateTime
+  expectedEndDate     DateTime?
+  status              LoanStatus       @default(ACTIVE)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  // Relaciones
+  lender        Lender         @relation(fields: [lenderId], references: [id])
+  client        Client         @relation(fields: [clientId], references: [id])
+  interests     LoanInterest[]
+  penalties     LoanPenalty[]
+  payments      Payment[]
+  installments  Installment[]
+
+  @@map("loans")
+}
+
+// 5️⃣ INTERESES GENERADOS (LoanInterest)
+// Intereses por período, NO capitalizan
+model LoanInterest {
+  id              String   @id @default(uuid())
+  loanId          String
+  periodStartDate DateTime
+  periodEndDate   DateTime
+  interestAmount  Float // interés generado
+  interestPaid    Float    @default(0) // interés cubierto
+  interestPending Float // interestAmount - interestPaid
+  createdAt       DateTime @default(now())
+
+  // Relaciones
+  loan Loan @relation(fields: [loanId], references: [id])
+
+  @@map("loan_interests")
+}
+
+// 6️⃣ MORA (LoanPenalty)
+// Se maneja explícitamente, no automática
+model LoanPenalty {
+  id              String   @id @default(uuid())
+  loanId          String
+  installmentId   String?
+  daysLate        Int
+  penaltyAmount   Float
+  wasCharged      Boolean  @default(false)
+  periodStartDate DateTime?
+  periodEndDate   DateTime?
+  calculatedAt    DateTime @default(now())
+
+  // Relaciones
+  loan        Loan         @relation(fields: [loanId], references: [id])
+  installment Installment? @relation(fields: [installmentId], references: [id])
+
+  @@map("loan_penalties")
+}
+
+// 7️⃣ PAGO (Payment)
+// Evento financiero puro - el backend decide cómo se distribuye
+model Payment {
+  id                 String   @id @default(uuid())
+  loanId             String
+  clientId           String
+  totalAmount        Float
+  appliedToInterest  Float    @default(0)
+  appliedToPrincipal Float    @default(0)
+  appliedToPenalty   Float    @default(0)
+  isEarlySettlement  Boolean  @default(false)
+  earlySettlementInterestModeUsed EarlySettlementInterestMode?
+  interestDaysCharged Int?
+  paymentDate        DateTime @default(now())
+  createdAt          DateTime @default(now())
+
+  // Relaciones
+  loan   Loan   @relation(fields: [loanId], references: [id])
+  client Client @relation(fields: [clientId], references: [id])
+
+  @@map("payments")
+}
+
+// 8️⃣ CUOTAS (Installment)
+// Solo se usa para FIXED_INSTALLMENTS
+model Installment {
+  id                String            @id @default(uuid())
+  loanId            String
+  installmentNumber Int
+  dueDate           DateTime
+  amount            Float
+  status            InstallmentStatus @default(PENDING)
+
+  // Relaciones
+  loan      Loan          @relation(fields: [loanId], references: [id])
+  penalties LoanPenalty[]
+
+  @@map("installments")
+}
