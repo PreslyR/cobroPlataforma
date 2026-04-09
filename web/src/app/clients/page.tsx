@@ -1,7 +1,7 @@
 import { ClientPortfolioCard } from "@/features/clients/components/client-portfolio-card";
 import { getClientsPortfolio } from "@/features/clients/lib/api";
-import { MetricCard } from "@/features/dashboard/components/metric-card";
 import { formatCurrency, formatLongDate } from "@/shared/lib/format";
+import styles from "./clients.module.css";
 
 type SearchParams = Promise<{
   lenderId?: string | string[];
@@ -18,10 +18,6 @@ function toDateInputValue(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-}
-
-function getMonthStartInputValue(value: string) {
-  return `${value.slice(0, 7)}-01`;
 }
 
 function buildQueryString(values: Record<string, string | undefined>) {
@@ -58,11 +54,6 @@ export default async function ClientsPage({
   );
   const search = getSingleParam(resolvedSearchParams.search)?.trim() ?? "";
   const baseQueryString = buildQueryString({ lenderId, date });
-  const reportsQueryString = buildQueryString({
-    lenderId,
-    from: getMonthStartInputValue(date),
-    to: date,
-  });
 
   if (!lenderId) {
     return (
@@ -110,32 +101,49 @@ export default async function ClientsPage({
   const { summary, items, asOfDate } = clientsResult.data;
 
   return (
-    <main className="page-shell">
-        <section className="panel gap-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="space-y-2">
-              <p className="eyebrow">Clientes</p>
-              <h1 className="text-[2rem] font-semibold leading-tight tracking-tight text-[var(--foreground)]">
-                Vista por persona
-              </h1>
-              <p className="max-w-[28rem] text-sm leading-6 text-[var(--muted)]">
-                Cada cliente se muestra una sola vez, con su deuda operativa agregada
-                y acceso a su ficha consolidada.
-              </p>
-            </div>
-            <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-right">
-              <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-[var(--muted)]">
-                Corte
-              </p>
-              <p className="mt-1 text-sm font-medium text-[var(--foreground)]">
-                {formatLongDate(asOfDate)}
-              </p>
-            </div>
+    <main className={`page-shell ${styles.pageShell}`}>
+      <section className={`panel ${styles.hero}`}>
+        <div className={styles.heroHeader}>
+          <div className={styles.heroCopy}>
+            <p className="eyebrow">Clientes</p>
+            <h1 className={styles.heroTitle}>Vista por persona</h1>
+            <p className={styles.heroSubtitle}>
+              Cada cliente aparece una sola vez con su deuda agregada y acceso rapido
+              a su ficha consolidada.
+            </p>
           </div>
 
-          <form className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1.5fr_auto]">
+          <div className={styles.heroDate}>
+            <p className={styles.heroDateLabel}>Fecha de corte</p>
+            <p className={styles.heroDateValue}>{formatLongDate(asOfDate)}</p>
+          </div>
+        </div>
+      </section>
+
+      <section className={styles.controlsPanel}>
+        <div className={styles.controlsHeading}>
+          <p className="eyebrow">Filtros</p>
+          <p className={styles.controlsCopy}>
+            Busca por nombre y ajusta el corte de la cartera por cliente.
+          </p>
+        </div>
+
+        <form className={styles.controlsForm}>
+          <input type="hidden" name="lenderId" value={lenderId} />
+          <label className="surface-field">
+            <span className="surface-label">Buscar cliente</span>
+            <input
+              className="surface-input"
+              type="text"
+              name="search"
+              defaultValue={search}
+              placeholder="Nombre del cliente"
+            />
+          </label>
+
+          <div className={styles.controlsBottomRow}>
             <label className="surface-field">
-              <span className="surface-label">Fecha de corte</span>
+              <span className="surface-label">Fecha</span>
               <input
                 className="surface-input"
                 type="date"
@@ -144,75 +152,59 @@ export default async function ClientsPage({
                 max={today}
               />
             </label>
-            <label className="surface-field">
-              <span className="surface-label">Buscar por nombre</span>
-              <input
-                className="surface-input"
-                type="text"
-                name="search"
-                defaultValue={search}
-                placeholder="Ej. Juan Perez"
-              />
-            </label>
-            <input type="hidden" name="lenderId" value={lenderId} />
             <button className="surface-button" type="submit">
-              Buscar
+              Aplicar
             </button>
-          </form>
-        </section>
-
-        <section className="grid grid-cols-2 gap-3">
-          <MetricCard
-            label="Con prestamos"
-            value={String(summary.clientsWithActiveLoans)}
-            meta={`${items.length} visible(s)`}
-            tone="neutral"
-          />
-          <MetricCard
-            label="Con atraso"
-            value={String(summary.clientsWithOverdueLoans)}
-            meta={formatCurrency(summary.totalCollectibleToday)}
-            tone="danger"
-          />
-          <MetricCard
-            label="Cobrable hoy"
-            value={formatCurrency(summary.totalCollectibleToday)}
-            meta={`Fecha ${date}`}
-            tone="brand"
-          />
-          <MetricCard
-            label="Busqueda"
-            value={search ? `"${search}"` : "Todas"}
-            meta="Filtro por nombre"
-            tone="warning"
-          />
-        </section>
-
-        <section className="panel gap-4">
-          <div className="flex items-end justify-between gap-3">
-            <div>
-              <p className="eyebrow">Listado</p>
-              <h2 className="section-title">Clientes activos</h2>
-            </div>
-            <p className="text-sm text-[var(--muted)]">{items.length} registro(s)</p>
           </div>
+        </form>
+      </section>
 
-          {items.length > 0 ? (
-            <div className="space-y-3">
-              {items.map((item) => (
-                <ClientPortfolioCard
-                  key={item.clientId}
-                  item={item}
-                  href={`/clients/${item.clientId}${baseQueryString}`}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="empty-panel">
-              No hay clientes con prestamos activos para esta fecha o filtro.
-            </div>
-          )}
-        </section>
+      <section className={styles.summaryStrip}>
+        <div className={styles.summaryCell}>
+          <span className={styles.summaryLabel}>Activos</span>
+          <strong className={styles.summaryValue}>
+            {summary.clientsWithActiveLoans}
+          </strong>
+        </div>
+        <div className={styles.summaryCell}>
+          <span className={styles.summaryLabel}>Con atraso</span>
+          <strong className={styles.summaryValue}>
+            {summary.clientsWithOverdueLoans}
+          </strong>
+        </div>
+        <div className={styles.summaryCell}>
+          <span className={styles.summaryLabel}>Cobrable hoy</span>
+          <strong className={styles.summaryValue}>
+            {formatCurrency(summary.totalCollectibleToday)}
+          </strong>
+        </div>
+      </section>
+
+      <section className={`panel ${styles.resultsSection}`}>
+        <div className={styles.sectionHeading}>
+          <div>
+            <p className="eyebrow">Listado</p>
+            <h2 className="section-title">Clientes activos</h2>
+          </div>
+          <p className={styles.sectionNote}>{items.length} registro(s)</p>
+        </div>
+
+        {items.length > 0 ? (
+          <div className="space-y-3">
+            {items.map((item) => (
+              <ClientPortfolioCard
+                key={item.clientId}
+                item={item}
+                href={`/clients/${item.clientId}${baseQueryString}`}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="empty-panel">
+            No hay clientes con prestamos activos para esta fecha o filtro.
+          </div>
+        )}
+      </section>
     </main>
   );
 }

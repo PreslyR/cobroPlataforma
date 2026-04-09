@@ -2,9 +2,9 @@ import Link from "next/link";
 import {
   formatCurrency,
   formatDateShort,
-  formatLoanStatus,
   formatLoanType,
 } from "@/shared/lib/format";
+import styles from "./client-loan-item.module.css";
 
 type ClientLoanItemProps = {
   item: {
@@ -22,28 +22,48 @@ type ClientLoanItemProps = {
   href: string;
 };
 
-function getTone(item: ClientLoanItemProps["item"]) {
+function getStatusLabel(item: ClientLoanItemProps["item"]) {
   if ((item.daysLate ?? 0) > 0) {
-    return "bg-[var(--danger-soft)] text-[var(--danger)]";
+    return "Atrasado";
   }
 
   if (item.dueTodayAmount > 0) {
-    return "bg-[var(--warning-soft)] text-[var(--warning)]";
+    return "Hoy";
   }
 
-  return "bg-[var(--brand-soft)] text-[var(--brand)]";
+  return "Al dia";
 }
 
-function getStatus(item: ClientLoanItemProps["item"]) {
+function getStatusTone(item: ClientLoanItemProps["item"]) {
   if ((item.daysLate ?? 0) > 0) {
-    return `${item.daysLate} dia(s) de atraso`;
+    return styles.statusDanger;
   }
 
   if (item.dueTodayAmount > 0) {
-    return "Vence hoy";
+    return styles.statusWarning;
   }
 
-  return formatLoanStatus(item.status);
+  return styles.statusBrand;
+}
+
+function getMetaLabel(item: ClientLoanItemProps["item"]) {
+  if ((item.daysLate ?? 0) > 0) {
+    return `${formatLoanType(item.type)} | ${item.daysLate} dia(s) de atraso`;
+  }
+
+  if (item.dueTodayAmount > 0) {
+    return `${formatLoanType(item.type)} | Vence hoy`;
+  }
+
+  return formatLoanType(item.type);
+}
+
+function getContextLabel(item: ClientLoanItemProps["item"]) {
+  return (item.daysLate ?? 0) > 0 ? "Vencido" : "Monto del dia";
+}
+
+function getContextAmount(item: ClientLoanItemProps["item"]) {
+  return (item.daysLate ?? 0) > 0 ? item.overdueAmount : item.dueTodayAmount;
 }
 
 export function ClientLoanItem({
@@ -51,55 +71,45 @@ export function ClientLoanItem({
   href,
 }: ClientLoanItemProps) {
   return (
-    <article className="rounded-[1.2rem] border border-[var(--line)] bg-[var(--surface)] p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="space-y-1">
-          <p className="text-sm font-semibold text-[var(--foreground)]">
-            {formatLoanType(item.type)}
-          </p>
-          <p className="text-sm text-[var(--muted)]">
-            {getStatus(item)}
-            {item.oldestDueDate ? ` · desde ${formatDateShort(item.oldestDueDate)}` : ""}
-          </p>
+    <article className={styles.card}>
+      <div className={styles.head}>
+        <div className={styles.copy}>
+          <p className={styles.name}>{getMetaLabel(item)}</p>
+          {item.oldestDueDate ? (
+            <p className={styles.meta}>Desde {formatDateShort(item.oldestDueDate)}</p>
+          ) : null}
         </div>
-        <span
-          className={`rounded-full px-3 py-1 text-[0.72rem] font-semibold uppercase tracking-[0.12em] ${getTone(
-            item,
-          )}`}
-        >
-          {formatLoanStatus(item.status)}
-        </span>
-      </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-        <div className="rounded-[1rem] bg-white/72 p-3">
-          <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">
-            Cobrable hoy
-          </p>
-          <p className="mt-1 text-lg font-semibold text-[var(--foreground)]">
-            {formatCurrency(item.totalCollectibleToday)}
-          </p>
-        </div>
-        <div className="rounded-[1rem] bg-white/72 p-3">
-          <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">
-            Saldo pendiente
-          </p>
-          <p className="mt-1 text-lg font-semibold text-[var(--foreground)]">
-            {formatCurrency(item.outstandingBalance)}
-          </p>
+        <div className={`${styles.status} ${getStatusTone(item)}`}>
+          {getStatusLabel(item)}
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[var(--muted)]">
-        <span>Mora pendiente: {formatCurrency(item.penaltyPending)}</span>
-        <span>Vencido: {formatCurrency(item.overdueAmount)}</span>
+      <div className={styles.mainAmountBlock}>
+        <p className={styles.label}>Total cobrable hoy</p>
+        <p className={styles.mainAmount}>{formatCurrency(item.totalCollectibleToday)}</p>
       </div>
 
-      <div className="mt-5 flex items-center justify-between gap-3 border-t border-[var(--line)] pt-4">
-        <span className="font-mono text-xs uppercase tracking-[0.14em] text-[var(--muted)]">
-          {item.loanId.slice(0, 8)}
-        </span>
-        <Link className="card-cta inline-flex items-center" href={href}>
+      <div className={styles.stats}>
+        <div className={styles.stat}>
+          <p className={styles.statLabel}>{getContextLabel(item)}</p>
+          <p className={styles.statValue}>{formatCurrency(getContextAmount(item))}</p>
+        </div>
+        <div className={styles.stat}>
+          <p className={styles.statLabel}>Saldo pendiente</p>
+          <p className={styles.statValue}>{formatCurrency(item.outstandingBalance)}</p>
+        </div>
+      </div>
+
+      <div className={styles.footer}>
+        <div className={styles.footerMeta}>
+          <span className={styles.footerNote}>
+            Mora pendiente: {formatCurrency(item.penaltyPending)}
+          </span>
+          <span className={styles.footerId}>{item.loanId.slice(0, 8)}</span>
+        </div>
+
+        <Link className={styles.footerCta} href={href}>
           Ver prestamo
         </Link>
       </div>

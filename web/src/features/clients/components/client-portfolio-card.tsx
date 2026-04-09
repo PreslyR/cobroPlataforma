@@ -1,9 +1,7 @@
 import Link from "next/link";
 import { ClientsPortfolioResponse } from "@/features/clients/types";
-import {
-  formatCurrency,
-  formatDateShort,
-} from "@/shared/lib/format";
+import { formatCurrency, formatDateShort } from "@/shared/lib/format";
+import styles from "./client-portfolio-card.module.css";
 
 type ClientPortfolioCardProps = {
   item: ClientsPortfolioResponse["items"][number];
@@ -24,19 +22,21 @@ function getStatusLabel(item: ClientPortfolioCardProps["item"]) {
 
 function getStatusTone(item: ClientPortfolioCardProps["item"]) {
   if (item.operationalStatus === "OVERDUE") {
-    return "bg-[var(--danger-soft)] text-[var(--danger)]";
+    return styles.statusDanger;
   }
 
   if (item.operationalStatus === "DUE_TODAY") {
-    return "bg-[var(--warning-soft)] text-[var(--warning)]";
+    return styles.statusWarning;
   }
 
-  return "bg-[var(--brand-soft)] text-[var(--brand)]";
+  return styles.statusBrand;
 }
 
 function getContext(item: ClientPortfolioCardProps["item"]) {
   if (item.operationalStatus === "OVERDUE") {
-    return `${item.daysLate ?? 0} dia(s) de atraso`;
+    return item.overdueLoansCount === 1
+      ? "1 prestamo atrasado"
+      : `${item.overdueLoansCount} prestamos atrasados`;
   }
 
   if (item.operationalStatus === "DUE_TODAY") {
@@ -46,74 +46,69 @@ function getContext(item: ClientPortfolioCardProps["item"]) {
   return "Sin atraso";
 }
 
+function getMetaLabel(item: ClientPortfolioCardProps["item"]) {
+  return `C.C. ${item.documentNumber}`;
+}
+
+function getOldestDueLabel(item: ClientPortfolioCardProps["item"]) {
+  if (!item.oldestDueDate) {
+    return null;
+  }
+
+  return item.overdueLoansCount > 1
+    ? `Atraso mas antiguo: ${formatDateShort(item.oldestDueDate)}`
+    : `Desde: ${formatDateShort(item.oldestDueDate)}`;
+}
+
 export function ClientPortfolioCard({
   item,
   href,
 }: ClientPortfolioCardProps) {
   return (
-    <article className="rounded-[1.45rem] border border-[var(--line)] bg-white/84 p-4 shadow-[0_14px_32px_rgba(29,42,48,0.06)]">
-      <div className="flex items-start justify-between gap-3">
-        <div className="space-y-1">
-          <p className="text-base font-semibold text-[var(--foreground)]">
-            {item.fullName}
-          </p>
-          <p className="text-sm text-[var(--muted)]">
-            Documento {item.documentNumber}
-            {item.phone ? ` · ${item.phone}` : ""}
-          </p>
+    <article className={styles.card}>
+      <div className={styles.head}>
+        <div className={styles.copy}>
+          <p className={styles.name}>{item.fullName}</p>
+          <p className={styles.meta}>{getMetaLabel(item)}</p>
         </div>
 
-        <div
-          className={`rounded-full px-3 py-1 text-[0.72rem] font-semibold uppercase tracking-[0.12em] ${getStatusTone(
-            item,
-          )}`}
-        >
+        <div className={`${styles.status} ${getStatusTone(item)}`}>
           {getStatusLabel(item)}
         </div>
       </div>
 
-      <div className="mt-5">
-        <p className="text-xs uppercase tracking-[0.1em] text-[var(--muted)]">
-          Total cobrable hoy
-        </p>
-        <p className="mt-1 text-[2rem] font-semibold leading-none tracking-tight text-[var(--foreground)]">
-          {formatCurrency(item.totalCollectibleToday)}
-        </p>
+      <div className={styles.mainAmountBlock}>
+        <p className={styles.label}>Total cobrable hoy</p>
+        <p className={styles.mainAmount}>{formatCurrency(item.totalCollectibleToday)}</p>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-        <div className="rounded-2xl bg-[var(--surface)] p-3">
-          <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">
-            Prestamos activos
-          </p>
-          <p className="mt-1 text-lg font-semibold text-[var(--foreground)]">
-            {item.activeLoansCount}
-          </p>
+      <div className={styles.stats}>
+        <div className={styles.stat}>
+          <p className={styles.statLabel}>Prestamos activos</p>
+          <p className={styles.statValue}>{item.activeLoansCount}</p>
         </div>
 
-        <div className="rounded-2xl bg-[var(--surface)] p-3">
-          <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">
-            Saldo pendiente
-          </p>
-          <p className="mt-1 text-lg font-semibold text-[var(--foreground)]">
-            {formatCurrency(item.outstandingBalance)}
-          </p>
+        <div className={styles.stat}>
+          <p className={styles.statLabel}>Saldo pendiente</p>
+          <p className={styles.statValue}>{formatCurrency(item.outstandingBalance)}</p>
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[var(--muted)]">
-        <span>{getContext(item)}</span>
-        <span>Mora pendiente: {formatCurrency(item.penaltyPending)}</span>
-        {item.oldestDueDate ? (
-          <span>Desde: {formatDateShort(item.oldestDueDate)}</span>
-        ) : null}
-      </div>
+      <div className={styles.footer}>
+        <div className={styles.footerMeta}>
+          {item.operationalStatus !== "CURRENT" ? (
+            <span className={styles.footerNote}>{getContext(item)}</span>
+          ) : null}
+          <span className={styles.footerNote}>
+            Mora pendiente: {formatCurrency(item.penaltyPending)}
+          </span>
+          {getOldestDueLabel(item) ? (
+            <span className={styles.footerNote}>{getOldestDueLabel(item)}</span>
+          ) : null}
+          <span className={styles.footerId}>{item.clientId.slice(0, 8)}</span>
+        </div>
 
-      <div className="mt-5 flex items-center justify-between gap-3 border-t border-[var(--line)] pt-4">
-        <span className="font-mono text-xs uppercase tracking-[0.14em] text-[var(--muted)]">
-          {item.clientId.slice(0, 8)}
-        </span>
-        <Link className="card-cta inline-flex items-center" href={href}>
+        <Link className={styles.footerCta} href={href}>
           Ver cliente
         </Link>
       </div>

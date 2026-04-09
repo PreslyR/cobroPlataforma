@@ -1,7 +1,7 @@
 import Link from "next/link";
+import { ClientDetailHero } from "@/features/clients/components/client-detail-hero";
 import { ClientLoanItem } from "@/features/clients/components/client-loan-item";
 import { ClientPaymentItem } from "@/features/clients/components/client-payment-item";
-import { MetricCard } from "@/features/dashboard/components/metric-card";
 import { getClientDebt } from "@/features/clients/lib/api";
 import { ContextHeader } from "@/shared/components/context-header";
 import {
@@ -11,6 +11,7 @@ import {
   formatLoanType,
   formatLongDate,
 } from "@/shared/lib/format";
+import styles from "./client-detail.module.css";
 
 type ClientDetailPageProps = {
   params: Promise<{ id: string }>;
@@ -94,42 +95,38 @@ export default async function ClientDetailPage({
     clientDebtResult.data;
 
   return (
-    <main className="page-shell">
+    <main className={`page-shell ${styles.pageShell}`}>
       <ContextHeader
         backHref={`/clients${queryString}`}
         backLabel="Volver a clientes"
         title="Cliente"
-        subtitle={`${client.documentNumber}${client.phone ? ` · ${client.phone}` : ""}`}
+        subtitle={`C.C. ${client.documentNumber}`}
         secondaryHref={`/portfolio${queryString}`}
         secondaryLabel="Cartera"
       />
 
-      <section className="panel gap-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-2">
-            <p className="eyebrow">Detalle de cliente</p>
-            <h1 className="text-[2rem] font-semibold leading-tight tracking-tight text-[var(--foreground)]">
-              {client.fullName}
-            </h1>
-            <p className="text-sm leading-6 text-[var(--muted)]">
-              Documento {client.documentNumber}
-              {client.phone ? ` · ${client.phone}` : ""}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-right">
-            <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-[var(--muted)]">
-              Corte
-            </p>
-            <p className="mt-1 text-sm font-medium text-[var(--foreground)]">
-              {formatLongDate(asOfDate)}
-            </p>
-          </div>
+      <ClientDetailHero
+        fullName={client.fullName}
+        documentNumber={client.documentNumber}
+        phone={client.phone}
+        lenderName={client.lender.name}
+        address={client.address}
+        notes={client.notes}
+        dateLabel={formatLongDate(asOfDate)}
+      />
+
+      <section className={styles.controlsPanel}>
+        <div className={styles.controlsHeading}>
+          <p className="eyebrow">Corte</p>
+          <p className={styles.controlsCopy}>
+            Ajusta la fecha para revisar la posicion operativa del cliente.
+          </p>
         </div>
 
-        <form className="grid grid-cols-[1fr_auto] gap-3">
+        <form className={styles.controlsForm}>
           <input type="hidden" name="lenderId" value={lenderId ?? ""} />
           <label className="surface-field">
-            <span className="surface-label">Fecha de corte</span>
+            <span className="surface-label">Fecha</span>
             <input
               className="surface-input"
               type="date"
@@ -139,73 +136,43 @@ export default async function ClientDetailPage({
             />
           </label>
           <button className="surface-button" type="submit">
-            Actualizar
+            Aplicar
           </button>
         </form>
       </section>
 
-      <section className="grid grid-cols-2 gap-3">
-        <MetricCard
-          label="Cobrable hoy"
-          value={formatCurrency(summary.totalCollectibleToday)}
-          meta={formatCurrency(summary.outstandingBalance)}
-          tone="brand"
-        />
-        <MetricCard
-          label="Prestamos activos"
-          value={String(summary.activeLoansCount)}
-          meta={`${summary.overdueLoansCount} atrasado(s)`}
-          tone="neutral"
-        />
-        <MetricCard
-          label="Mora pendiente"
-          value={formatCurrency(summary.penaltyPending)}
-          meta={formatCurrency(summary.overdueAmount)}
-          tone="danger"
-        />
-        <MetricCard
-          label="Prestamos cerrados"
-          value={String(summary.closedLoansCount)}
-          meta={formatCurrency(summary.dueTodayAmount)}
-          tone="warning"
-        />
-      </section>
-
-      <section className="panel gap-4">
-        <div>
-          <p className="eyebrow">Ficha base</p>
-          <h2 className="section-title">Datos del cliente</h2>
+      <section className={styles.summaryGrid}>
+        <div className={styles.summaryCell}>
+          <span className={styles.summaryLabel}>Cobrable hoy</span>
+          <strong className={styles.summaryValue}>
+            {formatCurrency(summary.totalCollectibleToday)}
+          </strong>
         </div>
-
-        <div className="grid gap-3 text-sm">
-          <div className="detail-row">
-            <span>Prestamista</span>
-            <strong>{client.lender.name}</strong>
-          </div>
-          <div className="detail-row">
-            <span>Telefono</span>
-            <strong>{client.phone || "Sin telefono"}</strong>
-          </div>
-          <div className="detail-row">
-            <span>Direccion</span>
-            <strong>{client.address || "Sin direccion"}</strong>
-          </div>
-          {client.notes ? (
-            <div className="detail-row">
-              <span>Notas</span>
-              <strong>{client.notes}</strong>
-            </div>
-          ) : null}
+        <div className={styles.summaryCell}>
+          <span className={styles.summaryLabel}>Saldo pendiente</span>
+          <strong className={styles.summaryValue}>
+            {formatCurrency(summary.outstandingBalance)}
+          </strong>
+        </div>
+        <div className={styles.summaryCell}>
+          <span className={styles.summaryLabel}>Prestamos activos</span>
+          <strong className={styles.summaryValue}>{summary.activeLoansCount}</strong>
+        </div>
+        <div className={styles.summaryCell}>
+          <span className={styles.summaryLabel}>Mora pendiente</span>
+          <strong className={styles.summaryValue}>
+            {formatCurrency(summary.penaltyPending)}
+          </strong>
         </div>
       </section>
 
-      <section className="panel gap-4">
-        <div className="flex items-end justify-between gap-3">
+      <section className={`panel ${styles.section}`}>
+        <div className={styles.sectionHeading}>
           <div>
             <p className="eyebrow">Prestamos activos</p>
             <h2 className="section-title">Operacion actual</h2>
           </div>
-          <p className="text-sm text-[var(--muted)]">{activeLoans.length} registro(s)</p>
+          <p className={styles.sectionCount}>{activeLoans.length} registro(s)</p>
         </div>
 
         {activeLoans.length > 0 ? (
@@ -230,80 +197,13 @@ export default async function ClientDetailPage({
         )}
       </section>
 
-      <section className="panel gap-4">
-        <div className="flex items-end justify-between gap-3">
-          <div>
-            <p className="eyebrow">Prestamos cerrados</p>
-            <h2 className="section-title">Historial del cliente</h2>
-          </div>
-          <p className="text-sm text-[var(--muted)]">{closedLoans.length} registro(s)</p>
-        </div>
-
-        {closedLoans.length > 0 ? (
-          <div className="space-y-3">
-            {closedLoans.map((loan) => (
-              <article
-                key={loan.loanId}
-                className="rounded-[1.15rem] border border-[var(--line)] bg-[var(--surface)] p-4"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <p className="text-sm font-semibold text-[var(--foreground)]">
-                      {formatLoanType(loan.type)}
-                    </p>
-                    <p className="text-sm text-[var(--muted)]">
-                      {formatLoanStatus(loan.status)} · Cerrado {formatDateShort(loan.closedAt)}
-                    </p>
-                  </div>
-                  <span className="rounded-full bg-[var(--success-soft)] px-3 py-1 text-[0.72rem] font-semibold uppercase tracking-[0.12em] text-[var(--success)]">
-                    {loan.wasEarlySettlement ? "Anticipado" : "Cerrado"}
-                  </span>
-                </div>
-
-                <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                  <div className="summary-pill">
-                    <span className="summary-pill-label">Monto original</span>
-                    <strong>{formatCurrency(loan.principalAmount)}</strong>
-                  </div>
-                  <div className="summary-pill">
-                    <span className="summary-pill-label">Ultimo pago</span>
-                    <strong>{formatCurrency(loan.lastPaymentAmount)}</strong>
-                  </div>
-                </div>
-
-                <div className="mt-5 flex items-center justify-between gap-3 border-t border-[var(--line)] pt-4">
-                  <span className="font-mono text-xs uppercase tracking-[0.14em] text-[var(--muted)]">
-                    {loan.loanId.slice(0, 8)}
-                  </span>
-                  <Link
-                    className="card-cta"
-                    href={`/loans/${loan.loanId}${buildQueryString({
-                      lenderId,
-                      date,
-                      origin: "client-detail",
-                      clientId: id,
-                    })}`}
-                  >
-                    Ver prestamo
-                  </Link>
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <div className="empty-panel">
-            Todavia no hay prestamos cerrados para este cliente.
-          </div>
-        )}
-      </section>
-
-      <section className="panel gap-4">
-        <div className="flex items-end justify-between gap-3">
+      <section className={`panel ${styles.section}`}>
+        <div className={styles.sectionHeading}>
           <div>
             <p className="eyebrow">Pagos recientes</p>
             <h2 className="section-title">Movimiento del cliente</h2>
           </div>
-          <p className="text-sm text-[var(--muted)]">{recentPayments.length} registro(s)</p>
+          <p className={styles.sectionCount}>{recentPayments.length} registro(s)</p>
         </div>
 
         {recentPayments.length > 0 ? (
@@ -324,6 +224,70 @@ export default async function ClientDetailPage({
         ) : (
           <div className="empty-panel">
             Este cliente todavia no tiene pagos registrados.
+          </div>
+        )}
+      </section>
+
+      <section className={`panel ${styles.section}`}>
+        <div className={styles.sectionHeading}>
+          <div>
+            <p className="eyebrow">Prestamos cerrados</p>
+            <h2 className="section-title">Historial del cliente</h2>
+          </div>
+          <p className={styles.sectionCount}>{closedLoans.length} registro(s)</p>
+        </div>
+
+        {closedLoans.length > 0 ? (
+          <div className="space-y-3">
+            {closedLoans.map((loan) => (
+              <article key={loan.loanId} className={styles.closedLoanCard}>
+                <div className={styles.closedLoanHead}>
+                  <div className={styles.closedLoanCopy}>
+                    <p className={styles.closedLoanName}>{formatLoanType(loan.type)}</p>
+                    <p className={styles.closedLoanMeta}>
+                      {formatLoanStatus(loan.status)} | Cerrado {formatDateShort(loan.closedAt)}
+                    </p>
+                  </div>
+                  <span className={styles.closedLoanBadge}>
+                    {loan.wasEarlySettlement ? "Anticipado" : "Cerrado"}
+                  </span>
+                </div>
+
+                <div className={styles.closedLoanStats}>
+                  <div className={styles.closedLoanStat}>
+                    <span className={styles.closedLoanStatLabel}>Monto original</span>
+                    <strong className={styles.closedLoanStatValue}>
+                      {formatCurrency(loan.principalAmount)}
+                    </strong>
+                  </div>
+                  <div className={styles.closedLoanStat}>
+                    <span className={styles.closedLoanStatLabel}>Ultimo pago</span>
+                    <strong className={styles.closedLoanStatValue}>
+                      {formatCurrency(loan.lastPaymentAmount)}
+                    </strong>
+                  </div>
+                </div>
+
+                <div className={styles.closedLoanFooter}>
+                  <span className={styles.closedLoanId}>{loan.loanId.slice(0, 8)}</span>
+                  <Link
+                    className={styles.closedLoanCta}
+                    href={`/loans/${loan.loanId}${buildQueryString({
+                      lenderId,
+                      date,
+                      origin: "client-detail",
+                      clientId: id,
+                    })}`}
+                  >
+                    Ver prestamo
+                  </Link>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="empty-panel">
+            Todavia no hay prestamos cerrados para este cliente.
           </div>
         )}
       </section>
