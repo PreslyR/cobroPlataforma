@@ -1,4 +1,4 @@
-.pageShellHome {
+﻿.pageShellHome {
   position: relative;
   gap: 1.4rem;
 }
@@ -185,31 +185,48 @@
 
 .homeToolbarGrid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: 1fr auto;
   gap: 0.65rem;
+  align-items: end;
+  border-radius: 1.15rem;
+  background: rgba(244, 247, 249, 0.86);
+  padding: 0.7rem;
+  box-shadow: inset 0 0 0 1px rgba(19, 31, 37, 0.04);
 }
 
-.homeToolbarPanel :global(.surface-field) {
-  gap: 0.32rem;
+.homeControlField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
 }
 
-.homeToolbarPanel :global(.surface-label) {
+.homeControlLabel {
   font-size: 0.66rem;
+  font-weight: 600;
   letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
-.homeToolbarPanel :global(.surface-input) {
-  min-height: 2.85rem;
+.homeControlInput {
+  min-height: 2.7rem;
+  border: 1px solid rgba(19, 31, 37, 0.08);
   border-radius: 0.95rem;
-  background: rgba(255, 255, 255, 0.9);
-  padding: 0.75rem 0.9rem;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 0.72rem 0.88rem;
+  color: var(--foreground);
 }
 
-.homeToolbarGrid :global(.surface-button) {
-  width: 100%;
-  min-height: 2.85rem;
+.homeControlButton {
+  min-height: 2.7rem;
+  border: 0;
   border-radius: 0.95rem;
-  padding: 0.72rem 0.95rem;
+  background: var(--foreground);
+  color: #ffffff;
+  padding: 0.72rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
 @media (min-width: 640px) {
@@ -233,8 +250,7 @@
     align-items: end;
   }
 
-  .homeToolbarGrid :global(.surface-button) {
-    width: auto;
+  .homeControlButton {
     min-width: 9rem;
   }
 
@@ -257,3 +273,5 @@
     font-size: 3rem;
   }
 }
+
+

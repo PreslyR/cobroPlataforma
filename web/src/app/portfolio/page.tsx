@@ -200,10 +200,10 @@ export default async function PortfolioPage({
           </label>
 
           <div className={styles.controlsBottomRow}>
-            <label className="surface-field">
-              <span className="surface-label">Fecha</span>
+            <label className={styles.controlField}>
+              <span className={styles.controlLabel}>Fecha</span>
               <input
-                className="surface-input"
+                className={styles.controlInput}
                 type="date"
                 name="date"
                 defaultValue={date}
@@ -211,7 +211,7 @@ export default async function PortfolioPage({
               />
             </label>
 
-            <button className="surface-button" type="submit">
+            <button className={styles.controlButton} type="submit">
               Aplicar
             </button>
           </div>
@@ -292,3 +292,4 @@ export default async function PortfolioPage({
     </main>
   );
 }
+

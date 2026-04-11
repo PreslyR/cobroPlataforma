@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { ClientDetailHero } from "@/features/clients/components/client-detail-hero";
 import { ClientLoanItem } from "@/features/clients/components/client-loan-item";
 import { ClientPaymentItem } from "@/features/clients/components/client-payment-item";
@@ -125,17 +125,17 @@ export default async function ClientDetailPage({
 
         <form className={styles.controlsForm}>
           <input type="hidden" name="lenderId" value={lenderId ?? ""} />
-          <label className="surface-field">
-            <span className="surface-label">Fecha</span>
+          <label className={styles.controlField}>
+            <span className={styles.controlLabel}>Fecha</span>
             <input
-              className="surface-input"
+              className={styles.controlInput}
               type="date"
               name="date"
               defaultValue={date}
               max={today}
             />
           </label>
-          <button className="surface-button" type="submit">
+          <button className={styles.controlButton} type="submit">
             Aplicar
           </button>
         </form>

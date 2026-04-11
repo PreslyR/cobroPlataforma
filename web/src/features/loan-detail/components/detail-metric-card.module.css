@@ -1,0 +1,57 @@
+﻿.card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.72rem;
+  min-height: 6.95rem;
+  border-radius: 1.15rem;
+  background: color-mix(in srgb, var(--surface) 92%, var(--surface-strong) 8%);
+  padding: 0.76rem 0.76rem 0.72rem;
+  box-shadow: inset 0 0 0 1px rgba(19, 31, 37, 0.04);
+}
+
+.pill {
+  width: fit-content;
+  max-width: 100%;
+  border-radius: 999px;
+  padding: 0.3rem 0.56rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.pillBrand {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+.pillDanger {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.pillWarning {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.pillNeutral {
+  background: color-mix(in srgb, var(--surface-strong) 74%, white 26%);
+  color: var(--foreground);
+}
+
+.value {
+  font-size: 1.5rem;
+  line-height: 1.02;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--foreground);
+}
+
+.meta {
+  margin-top: auto;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--muted);
+}

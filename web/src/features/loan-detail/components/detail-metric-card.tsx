@@ -1,3 +1,5 @@
+﻿import styles from "./detail-metric-card.module.css";
+
 type DetailMetricCardProps = {
   label: string;
   value: string;
@@ -11,26 +13,20 @@ export function DetailMetricCard({
   meta,
   tone = "neutral",
 }: DetailMetricCardProps) {
-  const toneClass =
+  const pillClass =
     tone === "danger"
-      ? "bg-[var(--danger-soft)]"
+      ? styles.pillDanger
       : tone === "warning"
-        ? "bg-[var(--warning-soft)]"
+        ? styles.pillWarning
         : tone === "brand"
-          ? "bg-[var(--brand-soft)]"
-          : "bg-[var(--surface)]";
+          ? styles.pillBrand
+          : styles.pillNeutral;
 
   return (
-    <div className={`rounded-[1.25rem] p-4 ${toneClass}`}>
-      <p className="text-xs uppercase tracking-[0.1em] text-[var(--muted)]">
-        {label}
-      </p>
-      <p className="mt-2 text-2xl font-semibold leading-none tracking-tight text-[var(--foreground)]">
-        {value}
-      </p>
-      {meta ? (
-        <p className="mt-2 text-sm leading-5 text-[var(--muted)]">{meta}</p>
-      ) : null}
-    </div>
+    <article className={styles.card}>
+      <p className={`${styles.pill} ${pillClass}`}>{label}</p>
+      <p className={styles.value}>{value}</p>
+      {meta ? <p className={styles.meta}>{meta}</p> : null}
+    </article>
   );
 }

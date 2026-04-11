@@ -1,0 +1,146 @@
+﻿.sectionBlock {
+  gap: 0.95rem;
+}
+
+.sectionHeading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.metricsPanel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  border-radius: 1.6rem;
+  background: rgba(244, 247, 249, 0.86);
+  padding: 0.65rem;
+  box-shadow: inset 0 0 0 1px rgba(19, 31, 37, 0.04);
+}
+
+.metricsPanelThree {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  border-radius: 1.6rem;
+  background: rgba(244, 247, 249, 0.86);
+  padding: 0.65rem;
+  box-shadow: inset 0 0 0 1px rgba(19, 31, 37, 0.04);
+}
+
+.payoffPanel {
+  display: grid;
+  gap: 0.65rem;
+  border-radius: 1.6rem;
+  background: rgba(244, 247, 249, 0.86);
+  padding: 0.65rem;
+  box-shadow: inset 0 0 0 1px rgba(19, 31, 37, 0.04);
+}
+
+@media (min-width: 640px) {
+  .metricsPanel,
+  .metricsPanelThree,
+  .payoffPanel {
+    gap: 0.75rem;
+    padding: 0.75rem;
+  }
+}
+
+.summarySection {
+  gap: 0.8rem;
+}
+
+.summaryCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  border-radius: 1.35rem;
+  background: color-mix(in srgb, var(--surface) 94%, var(--surface-strong) 6%);
+  padding: 1rem;
+  box-shadow: inset 0 0 0 1px rgba(19, 31, 37, 0.06);
+}
+
+.summaryLabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.summaryValue {
+  font-size: 2.35rem;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--foreground);
+}
+
+.summaryMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.controlBar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: end;
+  border-radius: 1.15rem;
+  background: rgba(244, 247, 249, 0.86);
+  padding: 0.7rem;
+  box-shadow: inset 0 0 0 1px rgba(19, 31, 37, 0.04);
+}
+
+.controlField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+
+.controlLabel {
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.controlInput {
+  min-height: 2.7rem;
+  border: 1px solid rgba(19, 31, 37, 0.08);
+  border-radius: 0.95rem;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 0.72rem 0.88rem;
+  color: var(--foreground);
+}
+
+.controlButton {
+  min-height: 2.7rem;
+  border: 0;
+  border-radius: 0.95rem;
+  background: var(--foreground);
+  color: #ffffff;
+  padding: 0.72rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+@media (min-width: 640px) {
+  .summarySection {
+    gap: 0.9rem;
+  }
+
+  .summaryCard {
+    padding: 1.1rem;
+  }
+
+  .controlBar {
+    padding: 0.75rem;
+  }
+}

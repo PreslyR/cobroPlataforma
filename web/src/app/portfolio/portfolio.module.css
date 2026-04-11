@@ -127,7 +127,12 @@
 .controlsBottomRow {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 0.6rem;
+  gap: 0.65rem;
+  align-items: end;
+  border-radius: 1.15rem;
+  background: rgba(244, 247, 249, 0.86);
+  padding: 0.7rem;
+  box-shadow: inset 0 0 0 1px rgba(19, 31, 37, 0.04);
 }
 
 .controlsPanel :global(.surface-field) {
@@ -146,10 +151,39 @@
   padding: 0.72rem 0.88rem;
 }
 
-.controlsPanel :global(.surface-button) {
-  min-height: 2.75rem;
-  border-radius: 0.92rem;
-  padding: 0.72rem 0.92rem;
+.controlField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+
+.controlLabel {
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.controlInput {
+  min-height: 2.7rem;
+  border: 1px solid rgba(19, 31, 37, 0.08);
+  border-radius: 0.95rem;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 0.72rem 0.88rem;
+  color: var(--foreground);
+}
+
+.controlButton {
+  min-height: 2.7rem;
+  border: 0;
+  border-radius: 0.95rem;
+  background: var(--foreground);
+  color: #ffffff;
+  padding: 0.72rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .filtersPanel {
@@ -233,3 +267,4 @@
     min-width: 8.4rem;
   }
 }
+

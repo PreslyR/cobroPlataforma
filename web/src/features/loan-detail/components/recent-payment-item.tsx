@@ -1,5 +1,9 @@
-import { LoanDetailRecord } from "@/features/loan-detail/types";
-import { formatCurrency, formatDateShort, formatSettlementMode } from "@/shared/lib/format";
+﻿import { LoanDetailRecord } from "@/features/loan-detail/types";
+import {
+  formatCurrency,
+  formatDateShort,
+  formatSettlementMode,
+} from "@/shared/lib/format";
 
 type RecentPaymentItemProps = {
   payment: LoanDetailRecord["payments"][number];
@@ -20,14 +24,14 @@ export function RecentPaymentItem({ payment }: RecentPaymentItemProps) {
 
         {payment.isEarlySettlement ? (
           <div className="rounded-full bg-[var(--brand-soft)] px-3 py-1 text-[0.72rem] font-semibold uppercase tracking-[0.12em] text-[var(--brand)]">
-            Liquidación
+            Liquidacion
           </div>
         ) : null}
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-2 text-sm text-[var(--muted)]">
         <div>
-          <p className="text-xs uppercase tracking-[0.08em]">Interés</p>
+          <p className="text-xs uppercase tracking-[0.08em]">Interes</p>
           <p className="mt-1 font-medium text-[var(--foreground)]">
             {formatCurrency(payment.appliedToInterest)}
           </p>
@@ -50,7 +54,7 @@ export function RecentPaymentItem({ payment }: RecentPaymentItemProps) {
         <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
           Modo usado: {formatSettlementMode(payment.earlySettlementInterestModeUsed)}
           {payment.interestDaysCharged !== null
-            ? ` · ${payment.interestDaysCharged} día(s)`
+            ? ` | ${payment.interestDaysCharged} dia(s)`
             : ""}
         </p>
       ) : null}

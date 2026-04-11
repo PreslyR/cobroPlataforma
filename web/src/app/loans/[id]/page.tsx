@@ -1,11 +1,13 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { DetailMetricCard } from "@/features/loan-detail/components/detail-metric-card";
 import { InstallmentItem } from "@/features/loan-detail/components/installment-item";
+import { LoanDetailHero } from "@/features/loan-detail/components/loan-detail-hero";
 import { LoanActionCard } from "@/features/loan-detail/components/loan-action-card";
 import { RecentPaymentItem } from "@/features/loan-detail/components/recent-payment-item";
 import { ScrollAwareActionBar } from "@/features/loan-detail/components/scroll-aware-action-bar";
 import { getLoanDetailPageData } from "@/features/loan-detail/lib/api";
 import { ContextHeader } from "@/shared/components/context-header";
+import styles from "./loan-detail-page.module.css";
 import {
   formatCurrency,
   formatDateShort,
@@ -177,13 +179,11 @@ export default async function LoanDetailPage({
   } else if (origin === "client-detail") {
     backHref = clientDetailHref;
     backLabel = "Volver al cliente";
-  } else if (
-    origin === "dashboard-payment" ||
-    origin === "global-payment"
-  ) {
+  } else if (origin === "dashboard-payment" || origin === "global-payment") {
     backHref = `/payments/new${paymentQueryString}`;
     backLabel = "Volver al cobro";
   }
+
   const currentInterestLabel =
     loan.type === "MONTHLY_INTEREST" ? "Interes vigente" : "Interes pendiente";
   const balanceLabel =
@@ -197,89 +197,108 @@ export default async function LoanDetailPage({
         backHref={backHref}
         backLabel={backLabel}
         title="Prestamo"
-        subtitle={`${formatLoanType(loan.type)} · ${loan.id.slice(0, 8)}`}
+        subtitle={`${formatLoanType(loan.type)} | ${loan.id.slice(0, 8)}`}
         secondaryHref={origin === "client-detail" ? undefined : clientDetailHref}
         secondaryLabel={origin === "client-detail" ? undefined : "Cliente"}
       />
 
-      <section className="panel gap-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-2">
-            <p className="eyebrow">Ficha operativa</p>
-            <h1 className="text-[2rem] font-semibold leading-tight tracking-tight text-[var(--foreground)]">
-              {loan.client.fullName}
-            </h1>
-            <p className="text-sm leading-6 text-[var(--muted)]">
-              {formatLoanType(loan.type)} · Documento {loan.client.documentNumber}
-            </p>
-          </div>
-          <div
-            className={`rounded-full px-3 py-1 text-[0.72rem] font-semibold uppercase tracking-[0.12em] ${getOperationalTone(
-              {
-                status: loan.status,
-                overdue: debtBreakdown.overdue,
-                dueToday: debtBreakdown.dueToday,
-              },
-            )}`}
-          >
-            {operationalLabel}
-          </div>
+      <LoanDetailHero
+        clientFullName={loan.client.fullName}
+        clientDocumentNumber={loan.client.documentNumber}
+        loanTypeLabel={formatLoanType(loan.type)}
+        lenderName={loan.lender.name}
+        loanStatusLabel={formatLoanStatus(loan.status)}
+        startDateLabel={formatLongDate(loan.startDate)}
+        paymentFrequencyLabel={formatPaymentFrequency(loan.paymentFrequency)}
+        principalAmountLabel={formatCurrency(loan.principalAmount)}
+        expectedEndDateLabel={
+          loan.expectedEndDate ? formatDateShort(loan.expectedEndDate) : "Sin fecha fija"
+        }
+        dateLabel={formatLongDate(date)}
+        loanIdShort={loan.id.slice(0, 8)}
+        installmentAmountLabel={
+          loan.type === "FIXED_INSTALLMENTS"
+            ? formatCurrency(loan.installmentAmount ?? 0)
+            : null
+        }
+        totalInstallments={
+          loan.type === "FIXED_INSTALLMENTS" ? loan.totalInstallments ?? 0 : null
+        }
+        monthlyInterestRateLabel={
+          loan.type === "MONTHLY_INTEREST"
+            ? formatPercentage(loan.monthlyInterestRate)
+            : null
+        }
+        earlySettlementModeLabel={
+          loan.type === "MONTHLY_INTEREST"
+            ? formatSettlementMode(loan.earlySettlementInterestMode ?? "FULL_MONTH")
+            : null
+        }
+      />
+
+      <section className={`panel ${styles.summarySection}`}>
+        <div
+          className={`w-fit rounded-full px-3 py-1 text-[0.72rem] font-semibold uppercase tracking-[0.12em] ${getOperationalTone(
+            {
+              status: loan.status,
+              overdue: debtBreakdown.overdue,
+              dueToday: debtBreakdown.dueToday,
+            },
+          )}`}
+        >
+          {operationalLabel}
         </div>
 
-        <div className="rounded-[1.4rem] border border-[var(--line)] bg-[var(--surface)] p-4">
-          <p className="text-xs uppercase tracking-[0.1em] text-[var(--muted)]">
-            Total cobrable hoy
-          </p>
-          <p className="mt-2 text-[2.5rem] font-semibold leading-none tracking-tight text-[var(--foreground)]">
+        <div className={styles.summaryCard}>
+          <p className={styles.summaryLabel}>Total cobrable hoy</p>
+          <p className={styles.summaryValue}>
             {formatCurrency(debtBreakdown.totalCollectibleToday)}
           </p>
-          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[var(--muted)]">
+          <div className={styles.summaryMeta}>
             <span>
               {balanceLabel}: {formatCurrency(debtBreakdown.outstandingBalance)}
             </span>
             {debtBreakdown.overdue ? (
               <span>
-                {debtBreakdown.daysLate} dia(s) de atraso · desde{" "}
+                {debtBreakdown.daysLate} dia(s) de atraso | desde{" "}
                 {debtBreakdown.oldestDueDate
                   ? formatDateShort(debtBreakdown.oldestDueDate)
                   : "-"}
               </span>
             ) : debtBreakdown.dueToday ? (
               <span>Vence en la fecha de corte actual.</span>
-            ) : (
-              <span>Prestamo operativo al dia.</span>
-            )}
+            ) : null}
           </div>
         </div>
 
-        <form className="grid grid-cols-[1fr_auto] gap-3">
+        <form className={styles.controlBar}>
           <input type="hidden" name="lenderId" value={lenderId ?? ""} />
           {origin ? <input type="hidden" name="origin" value={origin} /> : null}
           {from ? <input type="hidden" name="from" value={from} /> : null}
           {to ? <input type="hidden" name="to" value={to} /> : null}
-          <label className="surface-field">
-            <span className="surface-label">Fecha de corte</span>
+          <label className={styles.controlField}>
+            <span className={styles.controlLabel}>Cambiar fecha</span>
             <input
-              className="surface-input"
+              className={styles.controlInput}
               type="date"
               name="date"
               defaultValue={date}
               max={today}
             />
           </label>
-          <button className="surface-button" type="submit">
+          <button className={styles.controlButton} type="submit">
             Actualizar
           </button>
         </form>
       </section>
 
-      <section className="panel gap-4">
-        <div>
+      <section className={`panel ${styles.sectionBlock}`}>
+        <div className={styles.sectionHeading}>
           <p className="eyebrow">Desglose</p>
           <h2 className="section-title">Situacion financiera</h2>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className={styles.metricsPanel}>
           <DetailMetricCard
             label="Mora pendiente"
             value={formatCurrency(debtBreakdown.penalty.pending)}
@@ -336,128 +355,65 @@ export default async function LoanDetailPage({
       </section>
 
       {loan.status === "ACTIVE" ? (
-        <section className="panel gap-4" id="payoff">
-        <div>
-          <p className="eyebrow">Liquidacion</p>
-          <h2 className="section-title">Monto para saldar</h2>
-        </div>
+        <section className={`panel ${styles.sectionBlock}`} id="payoff">
+          <div className={styles.sectionHeading}>
+            <p className="eyebrow">Liquidacion</p>
+            <h2 className="section-title">Monto para saldar</h2>
+          </div>
 
-        <div className="grid gap-3">
-          <LoanActionCard
-            title="Liquidacion segun modo actual"
-            amount={formatCurrency(payoffFullMonth.totalPayoff)}
-            description={
-              loan.type === "MONTHLY_INTEREST"
-                ? `Incluye interes del periodo actual en modo ${formatSettlementMode(
-                    payoffFullMonth.modeUsed ?? "FULL_MONTH",
-                  ).toLowerCase()}.`
-                : "Incluye el saldo pendiente del plan y la mora existente."
-            }
-            href={`/payments/new${buildQueryString({
-              lenderId,
-              date,
-              loanId: id,
-              clientId,
-              origin,
-              from,
-              to,
-            })}`}
-            ctaLabel="Usar en pago"
-            tone="warning"
-          />
-
-          {payoffProrated ? (
+          <div className={styles.payoffPanel}>
             <LoanActionCard
-              title="Liquidacion prorrateada por dias"
-              amount={formatCurrency(payoffProrated.totalPayoff)}
-              description={`Interes actual considerado: ${formatCurrency(
-                payoffProrated.currentPeriodInterestForPayoff ?? 0,
-              )}${payoffProrated.interestDaysCharged !== null && payoffProrated.interestDaysCharged !== undefined ? ` · ${payoffProrated.interestDaysCharged} dia(s)` : ""}.`}
+              title="Liquidacion segun modo actual"
+              amount={formatCurrency(payoffFullMonth.totalPayoff)}
+              description={
+                loan.type === "MONTHLY_INTEREST"
+                  ? `Incluye interes del periodo actual en modo ${formatSettlementMode(
+                      payoffFullMonth.modeUsed ?? "FULL_MONTH",
+                    ).toLowerCase()}.`
+                  : "Incluye el saldo pendiente del plan y la mora existente."
+              }
               href={`/payments/new${buildQueryString({
                 lenderId,
                 date,
                 loanId: id,
-                mode: "PRORATED_BY_DAYS",
                 clientId,
                 origin,
                 from,
                 to,
               })}`}
-              ctaLabel="Usar modo prorrateado"
-              tone="brand"
+              ctaLabel="Usar en pago"
+              tone="warning"
             />
-          ) : null}
-        </div>
+
+            {payoffProrated ? (
+              <LoanActionCard
+                title="Liquidacion prorrateada por dias"
+                amount={formatCurrency(payoffProrated.totalPayoff)}
+                description={`Interes actual considerado: ${formatCurrency(
+                  payoffProrated.currentPeriodInterestForPayoff ?? 0,
+                )}${
+                  payoffProrated.interestDaysCharged !== null &&
+                  payoffProrated.interestDaysCharged !== undefined
+                    ? ` | ${payoffProrated.interestDaysCharged} dia(s)`
+                    : ""
+                }.`}
+                href={`/payments/new${buildQueryString({
+                  lenderId,
+                  date,
+                  loanId: id,
+                  mode: "PRORATED_BY_DAYS",
+                  clientId,
+                  origin,
+                  from,
+                  to,
+                })}`}
+                ctaLabel="Usar modo prorrateado"
+                tone="brand"
+              />
+            ) : null}
+          </div>
         </section>
       ) : null}
-
-      <section className="panel gap-4">
-        <div>
-          <p className="eyebrow">Datos del prestamo</p>
-          <h2 className="section-title">Ficha base</h2>
-        </div>
-
-        <div className="grid gap-3 text-sm">
-          <div className="detail-row">
-            <span>Prestamista</span>
-            <strong>{loan.lender.name}</strong>
-          </div>
-          <div className="detail-row">
-            <span>Estado</span>
-            <strong>{formatLoanStatus(loan.status)}</strong>
-          </div>
-          <div className="detail-row">
-            <span>Fecha de inicio</span>
-            <strong>{formatLongDate(loan.startDate)}</strong>
-          </div>
-          <div className="detail-row">
-            <span>Frecuencia</span>
-            <strong>{formatPaymentFrequency(loan.paymentFrequency)}</strong>
-          </div>
-          <div className="detail-row">
-            <span>Monto original</span>
-            <strong>{formatCurrency(loan.principalAmount)}</strong>
-          </div>
-          <div className="detail-row">
-            <span>Fecha esperada de cierre</span>
-            <strong>
-              {loan.expectedEndDate
-                ? formatDateShort(loan.expectedEndDate)
-                : "Sin fecha fija"}
-            </strong>
-          </div>
-
-          {loan.type === "FIXED_INSTALLMENTS" ? (
-            <>
-              <div className="detail-row">
-                <span>Valor de cuota</span>
-                <strong>{formatCurrency(loan.installmentAmount ?? 0)}</strong>
-              </div>
-              <div className="detail-row">
-                <span>Total de cuotas</span>
-                <strong>{loan.totalInstallments ?? 0}</strong>
-              </div>
-            </>
-          ) : null}
-
-          {loan.type === "MONTHLY_INTEREST" ? (
-            <>
-              <div className="detail-row">
-                <span>Tasa mensual</span>
-                <strong>{formatPercentage(loan.monthlyInterestRate)}</strong>
-              </div>
-              <div className="detail-row">
-                <span>Liquidacion anticipada</span>
-                <strong>
-                  {formatSettlementMode(
-                    loan.earlySettlementInterestMode ?? "FULL_MONTH",
-                  )}
-                </strong>
-              </div>
-            </>
-          ) : null}
-        </div>
-      </section>
 
       {loan.type === "FIXED_INSTALLMENTS" ? (
         <section className="panel gap-4">
@@ -473,7 +429,7 @@ export default async function LoanDetailPage({
 
           {loan.installments.length > 0 ? (
             <>
-              <div className="grid grid-cols-3 gap-3">
+              <div className={styles.metricsPanelThree}>
                 <DetailMetricCard
                   label="Pagadas"
                   value={String(
@@ -524,13 +480,13 @@ export default async function LoanDetailPage({
         </section>
       ) : null}
 
-      <section className="panel gap-4">
-        <div>
+      <section className={`panel ${styles.sectionBlock}`}>
+        <div className={styles.sectionHeading}>
           <p className="eyebrow">Resumen operativo</p>
           <h2 className="section-title">Contexto del prestamo</h2>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className={styles.metricsPanel}>
           <DetailMetricCard
             label="Pagos registrados"
             value={String(summary.payments.count)}
@@ -626,3 +582,8 @@ export default async function LoanDetailPage({
     </main>
   );
 }
+
+
+
+
+

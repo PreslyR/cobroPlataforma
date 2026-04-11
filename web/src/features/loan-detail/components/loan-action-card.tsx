@@ -1,4 +1,5 @@
-import Link from "next/link";
+﻿import Link from "next/link";
+import styles from "./loan-action-card.module.css";
 
 type LoanActionCardProps = {
   title: string;
@@ -17,30 +18,23 @@ export function LoanActionCard({
   ctaLabel,
   tone = "neutral",
 }: LoanActionCardProps) {
-  const toneClass =
+  const pillClass =
     tone === "brand"
-      ? "border-[color:rgba(13,94,91,0.15)] bg-[var(--brand-soft)]/65"
+      ? styles.pillBrand
       : tone === "warning"
-        ? "border-[color:rgba(165,92,24,0.15)] bg-[var(--warning-soft)]/70"
-        : "border-[var(--line)] bg-[var(--surface)]";
+        ? styles.pillWarning
+        : styles.pillNeutral;
 
   return (
-    <div className={`rounded-[1.35rem] border p-4 ${toneClass}`}>
-      <p className="text-sm font-semibold text-[var(--foreground)]">{title}</p>
-      {amount ? (
-        <p className="mt-2 text-[1.65rem] font-semibold leading-none tracking-tight text-[var(--foreground)]">
-          {amount}
-        </p>
-      ) : null}
-      <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{description}</p>
+    <article className={styles.card}>
+      <p className={`${styles.pill} ${pillClass}`}>{title}</p>
+      {amount ? <p className={styles.amount}>{amount}</p> : null}
+      <p className={styles.description}>{description}</p>
       {href && ctaLabel ? (
-        <Link
-          className="card-cta mt-4 inline-flex items-center"
-          href={href}
-        >
+        <Link className={styles.cta} href={href}>
           {ctaLabel}
         </Link>
       ) : null}
-    </div>
+    </article>
   );
 }

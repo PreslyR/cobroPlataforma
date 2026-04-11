@@ -1,4 +1,4 @@
-import { ClientPortfolioCard } from "@/features/clients/components/client-portfolio-card";
+﻿import { ClientPortfolioCard } from "@/features/clients/components/client-portfolio-card";
 import { getClientsPortfolio } from "@/features/clients/lib/api";
 import { formatCurrency, formatLongDate } from "@/shared/lib/format";
 import styles from "./clients.module.css";
@@ -142,17 +142,17 @@ export default async function ClientsPage({
           </label>
 
           <div className={styles.controlsBottomRow}>
-            <label className="surface-field">
-              <span className="surface-label">Fecha</span>
+            <label className={styles.controlField}>
+              <span className={styles.controlLabel}>Fecha</span>
               <input
-                className="surface-input"
+                className={styles.controlInput}
                 type="date"
                 name="date"
                 defaultValue={date}
                 max={today}
               />
             </label>
-            <button className="surface-button" type="submit">
+            <button className={styles.controlButton} type="submit">
               Aplicar
             </button>
           </div>
@@ -208,3 +208,4 @@ export default async function ClientsPage({
     </main>
   );
 }
+

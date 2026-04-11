@@ -1,4 +1,4 @@
-import { DashboardLoanItem } from "@/features/dashboard/components/dashboard-loan-item";
+﻿import { DashboardLoanItem } from "@/features/dashboard/components/dashboard-loan-item";
 import { MetricCard } from "@/features/dashboard/components/metric-card";
 import { getDashboardToday } from "@/features/dashboard/lib/api";
 import { formatCurrency, formatLongDate } from "@/shared/lib/format";
@@ -205,17 +205,17 @@ export default async function Home({
 
         <form className={styles.homeToolbarGrid}>
           <input type="hidden" name="lenderId" value={lenderId} />
-          <label className="surface-field">
-            <span className="surface-label">Fecha de corte</span>
+          <label className={styles.homeControlField}>
+            <span className={styles.homeControlLabel}>Fecha de corte</span>
             <input
-              className="surface-input"
+              className={styles.homeControlInput}
               type="date"
               name="date"
               defaultValue={date}
               max={today}
             />
           </label>
-          <button className="surface-button" type="submit">
+          <button className={styles.homeControlButton} type="submit">
             Actualizar
           </button>
         </form>
@@ -289,3 +289,4 @@ export default async function Home({
     </main>
   );
 }
+

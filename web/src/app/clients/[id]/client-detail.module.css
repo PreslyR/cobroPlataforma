@@ -1,4 +1,4 @@
-.pageShell {
+﻿.pageShell {
   gap: 1.1rem;
 }
 
@@ -27,30 +27,48 @@
 .controlsForm {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.6rem;
+  gap: 0.65rem;
+  align-items: end;
+  border-radius: 1.15rem;
+  background: rgba(244, 247, 249, 0.86);
+  padding: 0.7rem;
+  box-shadow: inset 0 0 0 1px rgba(19, 31, 37, 0.04);
 }
 
-.controlsPanel :global(.surface-field) {
-  gap: 0.3rem;
+.controlField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
 }
 
-.controlsPanel :global(.surface-label) {
-  font-size: 0.64rem;
+.controlLabel {
+  font-size: 0.66rem;
+  font-weight: 600;
   letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
-.controlsPanel :global(.surface-input) {
-  min-height: 2.75rem;
-  border-radius: 0.92rem;
-  background: rgba(255, 255, 255, 0.92);
+.controlInput {
+  min-height: 2.7rem;
+  border: 1px solid rgba(19, 31, 37, 0.08);
+  border-radius: 0.95rem;
+  background: rgba(255, 255, 255, 0.96);
   padding: 0.72rem 0.88rem;
+  color: var(--foreground);
 }
 
-.controlsPanel :global(.surface-button) {
-  min-height: 2.75rem;
-  border-radius: 0.92rem;
-  padding: 0.72rem 0.92rem;
+.controlButton {
+  min-height: 2.7rem;
   min-width: 8.4rem;
+  border: 0;
+  border-radius: 0.95rem;
+  background: var(--foreground);
+  color: #ffffff;
+  padding: 0.72rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .summaryGrid {
