@@ -1,0 +1,302 @@
+﻿.pageShell {
+  gap: 1rem;
+}
+
+.summarySection {
+  gap: 0.85rem;
+}
+
+.summaryCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.summaryTitle {
+  font-size: 2rem;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--foreground);
+}
+
+.summarySubtitle {
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  border-radius: 1.6rem;
+  background: rgba(244, 247, 249, 0.86);
+  padding: 0.65rem;
+  box-shadow: inset 0 0 0 1px rgba(19, 31, 37, 0.04);
+}
+
+.summaryCell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.16rem;
+  border-radius: 1.05rem;
+  background: color-mix(in srgb, var(--surface) 92%, var(--surface-strong) 8%);
+  padding: 0.76rem 0.78rem;
+}
+
+.summaryLabel {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.summaryValue {
+  font-size: 1.5rem;
+  line-height: 1.02;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--foreground);
+}
+
+.overdueNotice {
+  border-radius: 1.1rem;
+  border: 1px solid var(--danger-soft);
+  background: rgba(248, 222, 215, 0.55);
+  padding: 0.85rem 0.95rem;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--foreground);
+}
+
+.blockedNotice {
+  border-radius: 1.2rem;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  padding: 1rem;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.formSection {
+  gap: 0.95rem;
+}
+
+.formContent {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.fieldGrid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.amountInput {
+  font-size: 2rem;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.optionBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.chipsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.helperCopy {
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.modePanel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border-radius: 1.15rem;
+  background: rgba(244, 247, 249, 0.86);
+  padding: 0.82rem;
+  box-shadow: inset 0 0 0 1px rgba(19, 31, 37, 0.04);
+}
+
+.simulationPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  border-radius: 1.35rem;
+  background: rgba(244, 247, 249, 0.86);
+  padding: 0.8rem;
+  box-shadow: inset 0 0 0 1px rgba(19, 31, 37, 0.04);
+}
+
+.simulationState {
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.simulationLoading {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.skeleton {
+  height: 4.8rem;
+  border-radius: 1.05rem;
+  background: var(--surface-strong);
+}
+
+.errorMessage {
+  border-radius: 1.1rem;
+  border: 1px solid var(--danger-soft);
+  background: rgba(248, 222, 215, 0.55);
+  padding: 0.85rem 0.95rem;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--foreground);
+}
+
+.metricGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.metricCell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.16rem;
+  border-radius: 1.05rem;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 0.76rem 0.78rem;
+}
+
+.metricLabel {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.metricValue {
+  font-size: 1rem;
+  line-height: 1.25;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.payoffNotice {
+  border-radius: 1.1rem;
+  border: 1px solid var(--brand-soft);
+  background: rgba(216, 237, 232, 0.55);
+  padding: 0.85rem 0.95rem;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: var(--foreground);
+}
+
+.payoffTitle {
+  font-weight: 700;
+}
+
+.payoffMeta {
+  margin-top: 0.35rem;
+  color: var(--muted);
+}
+
+.payoffWarning {
+  margin-top: 0.35rem;
+  color: var(--danger);
+}
+
+.actionRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.65rem;
+}
+
+.actionButtonSecondary,
+.actionButtonPrimary,
+.linkButton,
+.linkButtonSecondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.8rem;
+  border-radius: 0.95rem;
+  padding: 0.72rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.actionButtonSecondary,
+.linkButtonSecondary {
+  border: 1px solid rgba(19, 31, 37, 0.08);
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--foreground);
+}
+
+.actionButtonPrimary,
+.linkButton {
+  border: 0;
+  background: var(--foreground);
+  color: #ffffff;
+}
+
+.resultSection {
+  gap: 0.95rem;
+}
+
+.resultNotice {
+  border-radius: 1.2rem;
+  background: var(--success-soft);
+  padding: 0.95rem 1rem;
+}
+
+.resultNoticeText {
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--foreground);
+}
+
+.resultGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  border-radius: 1.35rem;
+  background: rgba(244, 247, 249, 0.86);
+  padding: 0.65rem;
+  box-shadow: inset 0 0 0 1px rgba(19, 31, 37, 0.04);
+}
+
+.resultActions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.65rem;
+}
+
+@media (min-width: 640px) {
+  .resultActions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 430px) {
+  .actionRow {
+    grid-template-columns: 1fr;
+  }
+}

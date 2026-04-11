@@ -1,8 +1,8 @@
-import { MetricCard } from "@/features/dashboard/components/metric-card";
 import { ClosedLoanItem } from "@/features/reports/components/closed-loan-item";
 import { ReportPaymentItem } from "@/features/reports/components/report-payment-item";
 import { getReportsPageData } from "@/features/reports/lib/api";
 import { formatCurrency, formatLongDate } from "@/shared/lib/format";
+import styles from "./reports.module.css";
 
 type SearchParams = Promise<{
   lenderId?: string | string[];
@@ -45,6 +45,14 @@ function clampDateInputValue(value: string, maxValue: string) {
   return value > maxValue ? maxValue : value;
 }
 
+function formatRangeLabel(from: string, to: string) {
+  if (from === to) {
+    return formatLongDate(to);
+  }
+
+  return `${formatLongDate(from)} | ${formatLongDate(to)}`;
+}
+
 export default async function ReportsPage({
   searchParams,
 }: {
@@ -72,9 +80,10 @@ export default async function ReportsPage({
     from,
     to,
   });
+
   if (!lenderId) {
     return (
-      <main className="page-shell">
+      <main className={`page-shell ${styles.pageShell}`}>
         <section className="panel gap-4">
           <p className="eyebrow">Configuracion inicial</p>
           <h1 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">
@@ -93,7 +102,7 @@ export default async function ReportsPage({
 
   if (!reports.ok) {
     return (
-      <main className="page-shell">
+      <main className={`page-shell ${styles.pageShell}`}>
         <section className="panel gap-4">
           <p className="eyebrow text-[var(--danger)]">Reportes no disponibles</p>
           <h1 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">
@@ -119,197 +128,202 @@ export default async function ReportsPage({
   } = reports.data;
 
   return (
-    <main className="page-shell">
-        <section className="panel gap-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="space-y-2">
-              <p className="eyebrow">Reportes</p>
-              <h1 className="text-[2rem] font-semibold leading-tight tracking-tight text-[var(--foreground)]">
-                Historico y lectura del negocio
-              </h1>
-              <p className="max-w-[28rem] text-sm leading-6 text-[var(--muted)]">
-                Vista agregada para revisar ingresos, cartera al corte, pagos del periodo
-                y prestamos ya cerrados.
-              </p>
-            </div>
-            <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-right">
-              <p className="font-mono text-[0.7rem] uppercase tracking-[0.22em] text-[var(--muted)]">
-                Corte
-              </p>
-              <p className="mt-1 text-sm font-medium text-[var(--foreground)]">
-                {formatLongDate(portfolioSummary.asOfDate)}
-              </p>
-            </div>
+    <main className={`page-shell ${styles.pageShell}`}>
+      <section className={styles.hero}>
+        <div className={styles.heroHeader}>
+          <div className={styles.heroCopy}>
+            <p className="eyebrow">Reportes</p>
+            <h1 className={styles.heroTitle}>Historico del negocio</h1>
+            <p className={styles.heroSubtitle}>
+              Consulta ingresos del periodo, foto de cartera y prestamos ya cerrados.
+            </p>
           </div>
+          <div className={styles.heroRange}>
+            <p className={styles.heroRangeLabel}>Rango</p>
+            <p className={styles.heroRangeValue}>{formatRangeLabel(from, to)}</p>
+          </div>
+        </div>
 
-          <form className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_1.4fr_auto]">
-            <label className="surface-field">
-              <span className="surface-label">Desde</span>
+        <div className={styles.metricsPanel}>
+          <div className={styles.metricCell}>
+            <p className={styles.metricLabel}>Recaudo total</p>
+            <p className={styles.metricValue}>
+              {formatCurrency(interestIncome.totalCollectedAmount)}
+            </p>
+            <p className={styles.metricMeta}>{interestIncome.paymentsCount} pago(s)</p>
+          </div>
+          <div className={styles.metricCell}>
+            <p className={styles.metricLabel}>Intereses cobrados</p>
+            <p className={styles.metricValue}>
+              {formatCurrency(interestIncome.totalInterestIncome)}
+            </p>
+            <p className={styles.metricMeta}>Dentro del rango</p>
+          </div>
+          <div className={styles.metricCell}>
+            <p className={styles.metricLabel}>Mora cobrada</p>
+            <p className={styles.metricValue}>
+              {formatCurrency(penaltyIncome.totalPenaltyIncome)}
+            </p>
+            <p className={styles.metricMeta}>Dentro del rango</p>
+          </div>
+          <div className={styles.metricCell}>
+            <p className={styles.metricLabel}>Prestamos cerrados</p>
+            <p className={styles.metricValue}>{String(closedLoans.totalCount)}</p>
+            <p className={styles.metricMeta}>Cierres del periodo</p>
+          </div>
+        </div>
+      </section>
+
+      <section className={`panel ${styles.controlsPanel}`}>
+        <div className={styles.controlsHeading}>
+          <p className="eyebrow">Rango del reporte</p>
+          <p className={styles.controlsCopy}>
+            Ajusta el periodo para revisar ingresos, pagos y cierres del negocio.
+          </p>
+        </div>
+
+        <form className={styles.controlsForm}>
+          <input type="hidden" name="lenderId" defaultValue={lenderId} />
+          <div className={styles.controlBar}>
+            <label className={styles.controlField}>
+              <span className={styles.controlLabel}>Desde</span>
               <input
-                className="surface-input"
+                className={styles.controlInput}
                 type="date"
                 name="from"
                 defaultValue={from}
                 max={todayInput}
               />
             </label>
-            <label className="surface-field">
-              <span className="surface-label">Hasta</span>
+            <label className={styles.controlField}>
+              <span className={styles.controlLabel}>Hasta</span>
               <input
-                className="surface-input"
+                className={styles.controlInput}
                 type="date"
                 name="to"
                 defaultValue={to}
                 max={todayInput}
               />
             </label>
-            <label className="surface-field">
-              <span className="surface-label">Prestamista</span>
-              <input
-                className="surface-input font-mono text-xs"
-                type="text"
-                name="lenderId"
-                defaultValue={lenderId}
-              />
-            </label>
-            <button className="surface-button" type="submit">
-              Actualizar
+            <button className={styles.controlButton} type="submit">
+              Aplicar
             </button>
-          </form>
-        </section>
+          </div>
+        </form>
+      </section>
 
-        <section className="grid grid-cols-2 gap-3">
-          <MetricCard
-            label="Recaudo total"
-            value={formatCurrency(interestIncome.totalCollectedAmount)}
-            meta={`${interestIncome.paymentsCount} pago(s)`}
-            tone="brand"
-          />
-          <MetricCard
-            label="Intereses cobrados"
-            value={formatCurrency(interestIncome.totalInterestIncome)}
-            meta={`Del ${from} al ${to}`}
-            tone="success"
-          />
-          <MetricCard
-            label="Mora cobrada"
-            value={formatCurrency(penaltyIncome.totalPenaltyIncome)}
-            meta={`Del ${from} al ${to}`}
-            tone="warning"
-          />
-          <MetricCard
-            label="Prestamos cerrados"
-            value={String(closedLoans.totalCount)}
-            meta="Dentro del rango"
-            tone="neutral"
-          />
-        </section>
-
-        <section className="panel gap-4">
+      <section className={styles.sectionBlock}>
+        <div className={styles.sectionHeading}>
           <div>
             <p className="eyebrow">Cartera al corte</p>
             <h2 className="section-title">Foto actual del negocio</h2>
           </div>
+          <p className={styles.sectionNote}>
+            Corte operativo del {formatLongDate(portfolioSummary.asOfDate)}
+          </p>
+        </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <MetricCard
-              label="Activos"
-              value={String(portfolioSummary.totals.activeLoans)}
-              meta={`${portfolioSummary.totals.overdueLoans} atrasado(s)`}
-              tone="neutral"
-            />
-            <MetricCard
-              label="Capital pendiente"
-              value={formatCurrency(portfolioSummary.totals.capitalPending)}
-              meta={`Capital colocado ${formatCurrency(
-                portfolioSummary.totals.principalPlaced,
-              )}`}
-              tone="brand"
-            />
-            <MetricCard
-              label="Pendiente total"
-              value={formatCurrency(portfolioSummary.totals.pendingTotal)}
-              meta="Capital + interes + mora pendientes"
-              tone="brand"
-            />
-            <MetricCard
-              label="Interes pendiente"
-              value={formatCurrency(portfolioSummary.totals.interestPending)}
-              meta="Intereses aun no cobrados"
-              tone="warning"
-            />
-            <MetricCard
-              label="Mora pendiente"
-              value={formatCurrency(portfolioSummary.totals.penaltyPending)}
-              meta="Mora acumulada no cobrada"
-              tone="warning"
-            />
-            <MetricCard
-              label="Cobrable hoy"
-              value={formatCurrency(portfolioSummary.totals.totalCollectibleToday)}
-              meta={`Vencido ${formatCurrency(
-                portfolioSummary.totals.overdueAmount,
-              )}`}
-              tone="danger"
-            />
-          </div>
-        </section>
-
-        <section className="panel gap-4">
-          <div className="flex items-end justify-between gap-3">
-            <div>
-              <p className="eyebrow">Historial</p>
-              <h2 className="section-title">Pagos del periodo</h2>
-            </div>
-            <p className="text-sm text-[var(--muted)]">
-              {paymentsHistory.totalCount} registro(s)
+        <div className={styles.metricsPanel}>
+          <div className={styles.metricCell}>
+            <p className={styles.metricLabel}>Activos</p>
+            <p className={styles.metricValue}>{String(portfolioSummary.totals.activeLoans)}</p>
+            <p className={styles.metricMeta}>
+              {portfolioSummary.totals.overdueLoans} atrasado(s)
             </p>
           </div>
-
-          {paymentsHistory.items.length > 0 ? (
-            <div className="space-y-3">
-              {paymentsHistory.items.map((item) => (
-                <ReportPaymentItem
-                  key={item.id}
-                  item={item}
-                  href={`/loans/${item.loanId}${detailQueryString}`}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="empty-panel">
-              No hay pagos registrados dentro del rango seleccionado.
-            </div>
-          )}
-        </section>
-
-        <section className="panel gap-4">
-          <div className="flex items-end justify-between gap-3">
-            <div>
-              <p className="eyebrow">Cierres</p>
-              <h2 className="section-title">Prestamos cerrados</h2>
-            </div>
-            <p className="text-sm text-[var(--muted)]">
-              {closedLoans.totalCount} registro(s)
+          <div className={styles.metricCell}>
+            <p className={styles.metricLabel}>Capital pendiente</p>
+            <p className={styles.metricValue}>
+              {formatCurrency(portfolioSummary.totals.capitalPending)}
+            </p>
+            <p className={styles.metricMeta}>
+              Colocado {formatCurrency(portfolioSummary.totals.principalPlaced)}
             </p>
           </div>
+          <div className={styles.metricCell}>
+            <p className={styles.metricLabel}>Pendiente total</p>
+            <p className={styles.metricValue}>
+              {formatCurrency(portfolioSummary.totals.pendingTotal)}
+            </p>
+            <p className={styles.metricMeta}>Capital + interes + mora</p>
+          </div>
+          <div className={styles.metricCell}>
+            <p className={styles.metricLabel}>Interes pendiente</p>
+            <p className={styles.metricValue}>
+              {formatCurrency(portfolioSummary.totals.interestPending)}
+            </p>
+            <p className={styles.metricMeta}>Aun no cobrado</p>
+          </div>
+          <div className={styles.metricCell}>
+            <p className={styles.metricLabel}>Mora pendiente</p>
+            <p className={styles.metricValue}>
+              {formatCurrency(portfolioSummary.totals.penaltyPending)}
+            </p>
+            <p className={styles.metricMeta}>Mora acumulada</p>
+          </div>
+          <div className={styles.metricCell}>
+            <p className={styles.metricLabel}>Cobrable hoy</p>
+            <p className={styles.metricValue}>
+              {formatCurrency(portfolioSummary.totals.totalCollectibleToday)}
+            </p>
+            <p className={styles.metricMeta}>
+              Vencido {formatCurrency(portfolioSummary.totals.overdueAmount)}
+            </p>
+          </div>
+        </div>
+      </section>
 
-          {closedLoans.items.length > 0 ? (
-            <div className="space-y-3">
-              {closedLoans.items.map((item) => (
-                <ClosedLoanItem
-                  key={item.loanId}
-                  item={item}
-                  href={`/loans/${item.loanId}${detailQueryString}`}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="empty-panel">
-              No hay prestamos cerrados dentro del rango seleccionado.
-            </div>
-          )}
-        </section>
+      <section className={styles.sectionBlock}>
+        <div className={styles.sectionHeading}>
+          <div>
+            <p className="eyebrow">Historial</p>
+            <h2 className="section-title">Pagos del periodo</h2>
+          </div>
+          <p className={styles.sectionNote}>{paymentsHistory.totalCount} registro(s)</p>
+        </div>
+
+        {paymentsHistory.items.length > 0 ? (
+          <div className="space-y-3">
+            {paymentsHistory.items.map((item) => (
+              <ReportPaymentItem
+                key={item.id}
+                item={item}
+                href={`/loans/${item.loanId}${detailQueryString}`}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="empty-panel">
+            No hay pagos registrados dentro del rango seleccionado.
+          </div>
+        )}
+      </section>
+
+      <section className={styles.sectionBlock}>
+        <div className={styles.sectionHeading}>
+          <div>
+            <p className="eyebrow">Cierres</p>
+            <h2 className="section-title">Prestamos cerrados</h2>
+          </div>
+          <p className={styles.sectionNote}>{closedLoans.totalCount} registro(s)</p>
+        </div>
+
+        {closedLoans.items.length > 0 ? (
+          <div className="space-y-3">
+            {closedLoans.items.map((item) => (
+              <ClosedLoanItem
+                key={item.loanId}
+                item={item}
+                href={`/loans/${item.loanId}${detailQueryString}`}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="empty-panel">
+            No hay prestamos cerrados dentro del rango seleccionado.
+          </div>
+        )}
+      </section>
     </main>
   );
 }

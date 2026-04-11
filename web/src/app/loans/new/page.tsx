@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CreateLoanFormShell } from "@/features/loans/components/create-loan-form-shell";
 import { getActiveClients } from "@/features/loans/lib/api";
+import styles from "./new-loan.module.css";
 
 type SearchParams = Promise<{
   lenderId?: string | string[];
@@ -48,7 +49,7 @@ export default async function NewLoanPage({
 
   if (!lenderId) {
     return (
-      <main className="page-shell">
+      <main className={`page-shell ${styles.pageShell}`}>
         <section className="panel gap-4">
           <p className="eyebrow">Nuevo prestamo</p>
           <h1 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">
@@ -59,7 +60,7 @@ export default async function NewLoanPage({
             <code>NEXT_PUBLIC_DEFAULT_LENDER_ID</code> en <code>web/.env.local</code>.
           </p>
           <Link className="inline-link" href="/">
-            Volver al Dashboard
+            Volver al dashboard
           </Link>
         </section>
       </main>
@@ -70,7 +71,7 @@ export default async function NewLoanPage({
 
   if (!clientsResult.ok) {
     return (
-      <main className="page-shell">
+      <main className={`page-shell ${styles.pageShell}`}>
         <section className="panel gap-4">
           <p className="eyebrow text-[var(--danger)]">Clientes no disponibles</p>
           <h1 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">
@@ -84,7 +85,7 @@ export default async function NewLoanPage({
             {clientsResult.error}
           </div>
           <Link className="inline-link" href={dashboardHref}>
-            Volver al Dashboard
+            Volver al dashboard
           </Link>
         </section>
       </main>

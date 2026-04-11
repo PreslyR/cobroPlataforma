@@ -1,14 +1,15 @@
+import styles from "./new-loan.module.css";
+
 export default function NewLoanLoading() {
   return (
-    <main className="page-shell">
-      <section className="panel gap-4">
-        <div className="h-5 w-32 animate-pulse rounded-xl bg-[var(--surface-strong)]" />
-        <div className="h-10 w-56 animate-pulse rounded-xl bg-[var(--surface-strong)]" />
-        <div className="h-20 animate-pulse rounded-[1.35rem] bg-[var(--surface-strong)]" />
+    <main className={`page-shell ${styles.pageShell}`}>
+      <section className={styles.loadingPanel}>
+        <div className={styles.loadingHeroBlock} />
+        <div className={styles.loadingHeroBlock} />
       </section>
 
-      <section className="panel gap-3">
-        <div className="h-96 animate-pulse rounded-[1.35rem] bg-[var(--surface-strong)]" />
+      <section className={styles.loadingPanel}>
+        <div className={styles.loadingCard} />
       </section>
     </main>
   );

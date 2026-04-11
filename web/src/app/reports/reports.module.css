@@ -1,0 +1,276 @@
+.pageShell {
+  gap: 1.1rem;
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+}
+
+.heroHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.9rem;
+}
+
+.heroCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.32rem;
+}
+
+.heroTitle {
+  font-size: 2rem;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--foreground);
+}
+
+.heroSubtitle {
+  max-width: 24rem;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.heroRange {
+  width: fit-content;
+  min-width: 11rem;
+  border-radius: 1.15rem;
+  background: color-mix(in srgb, var(--surface) 86%, white 14%);
+  padding: 0.75rem 0.85rem;
+  box-shadow: inset 0 0 0 1px rgba(19, 31, 37, 0.05);
+}
+
+.heroRangeLabel {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.heroRangeValue {
+  margin-top: 0.28rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--foreground);
+}
+
+.metricsPanel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--line) 82%, white 18%);
+  border-radius: 1.45rem;
+  background: rgba(255, 255, 255, 0.88);
+  padding: 0.65rem;
+  box-shadow: 0 12px 26px rgba(19, 31, 37, 0.05);
+}
+
+.metricCell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.16rem;
+  border-radius: 1.02rem;
+  background: color-mix(in srgb, var(--surface) 88%, var(--surface-strong) 12%);
+  padding: 0.72rem 0.76rem;
+}
+
+.metricLabel {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.metricValue {
+  font-size: 1.42rem;
+  line-height: 1.02;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--foreground);
+}
+
+.metricMeta {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.controlsPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.72rem;
+  border-radius: 1.28rem;
+  background: rgba(255, 255, 255, 0.74);
+  padding: 0.82rem;
+  box-shadow: inset 0 0 0 1px rgba(19, 31, 37, 0.04);
+}
+
+.controlsHeading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.14rem;
+}
+
+.controlsCopy {
+  font-size: 0.84rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.controlsForm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.controlBar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  align-items: end;
+  border-radius: 1.15rem;
+  background: rgba(244, 247, 249, 0.86);
+  padding: 0.7rem;
+  box-shadow: inset 0 0 0 1px rgba(19, 31, 37, 0.04);
+}
+
+.controlField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+
+.controlLabel {
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.controlInput {
+  min-height: 2.7rem;
+  border: 1px solid rgba(19, 31, 37, 0.08);
+  border-radius: 0.95rem;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 0.72rem 0.88rem;
+  color: var(--foreground);
+}
+
+.controlButton {
+  min-height: 2.7rem;
+  grid-column: 1 / -1;
+  border: 0;
+  border-radius: 0.95rem;
+  background: var(--foreground);
+  color: #ffffff;
+  padding: 0.72rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.sectionBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.sectionHeading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.sectionNote {
+  max-width: 11rem;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  text-align: right;
+  color: var(--muted);
+}
+
+.loadingPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.loadingHeroBlock,
+.loadingCard {
+  border-radius: 1.2rem;
+  background: var(--surface-strong);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.loadingHeroBlock {
+  height: 4.6rem;
+}
+
+.loadingMetrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.loadingMetric {
+  height: 6.2rem;
+  border-radius: 1.05rem;
+  background: var(--surface-strong);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.loadingCard {
+  height: 8.8rem;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.72;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 460px) {
+  .heroHeader {
+    flex-direction: column;
+  }
+
+  .heroRange {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .sectionHeading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .sectionNote {
+    max-width: none;
+    text-align: left;
+  }
+}
+
+@media (min-width: 640px) {
+  .controlBar {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  }
+
+  .controlButton {
+    grid-column: auto;
+    min-width: 8.5rem;
+  }
+}

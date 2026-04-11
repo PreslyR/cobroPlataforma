@@ -1,27 +1,29 @@
+import styles from "./reports.module.css";
+
 export default function ReportsLoading() {
   return (
-    <main className="page-shell">
-      <section className="panel gap-4">
-        <p className="eyebrow">Reportes</p>
-        <div className="h-8 w-56 animate-pulse rounded-full bg-[var(--surface-strong)]" />
-        <div className="h-20 animate-pulse rounded-[1.25rem] bg-[var(--surface-strong)]" />
+    <main className={`page-shell ${styles.pageShell}`}>
+      <section className={styles.loadingPanel}>
+        <div className={styles.loadingHeroBlock} />
+        <div className={styles.loadingMetrics}>
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className={styles.loadingMetric} />
+          ))}
+        </div>
       </section>
 
-      <section className="grid grid-cols-2 gap-3">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div
-            key={index}
-            className="panel h-28 animate-pulse rounded-[1.35rem] bg-[var(--surface-strong)]"
-          />
-        ))}
+      <section className={styles.loadingPanel}>
+        <div className={styles.loadingHeroBlock} />
+        <div className={styles.loadingMetrics}>
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className={styles.loadingMetric} />
+          ))}
+        </div>
       </section>
 
-      <section className="panel gap-3">
+      <section className={styles.loadingPanel}>
         {Array.from({ length: 3 }).map((_, index) => (
-          <div
-            key={index}
-            className="h-28 animate-pulse rounded-[1.2rem] bg-[var(--surface-strong)]"
-          />
+          <div key={index} className={styles.loadingCard} />
         ))}
       </section>
     </main>

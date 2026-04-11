@@ -57,6 +57,82 @@ describe("LoansService", () => {
     );
   });
 
+  it("creates exact weekly due dates for fixed installments with rounded peso amounts", async () => {
+    await service.create({
+      lenderId: "lender-1",
+      clientId: "client-1",
+      type: LoanType.FIXED_INSTALLMENTS,
+      principalAmount: 100000,
+      installmentAmount: 30000,
+      totalInstallments: 4,
+      paymentFrequency: PaymentFrequency.WEEKLY,
+      startDate: "2026-03-24",
+    });
+
+    const createManyArgs = prisma.installment.createMany.mock.calls[0][0];
+
+    expect(createManyArgs.data).toEqual([
+      expect.objectContaining({
+        installmentNumber: 1,
+        amount: 30000,
+        dueDate: new Date("2026-03-31T00:00:00.000Z"),
+      }),
+      expect.objectContaining({
+        installmentNumber: 2,
+        amount: 30000,
+        dueDate: new Date("2026-04-07T00:00:00.000Z"),
+      }),
+      expect.objectContaining({
+        installmentNumber: 3,
+        amount: 30000,
+        dueDate: new Date("2026-04-14T00:00:00.000Z"),
+      }),
+      expect.objectContaining({
+        installmentNumber: 4,
+        amount: 30000,
+        dueDate: new Date("2026-04-21T00:00:00.000Z"),
+      }),
+    ]);
+  });
+
+  it("creates exact biweekly due dates for fixed installments with rounded peso amounts", async () => {
+    await service.create({
+      lenderId: "lender-1",
+      clientId: "client-1",
+      type: LoanType.FIXED_INSTALLMENTS,
+      principalAmount: 100000,
+      installmentAmount: 30000,
+      totalInstallments: 4,
+      paymentFrequency: PaymentFrequency.BIWEEKLY,
+      startDate: "2026-03-24",
+    });
+
+    const createManyArgs = prisma.installment.createMany.mock.calls[0][0];
+
+    expect(createManyArgs.data).toEqual([
+      expect.objectContaining({
+        installmentNumber: 1,
+        amount: 30000,
+        dueDate: new Date("2026-04-07T00:00:00.000Z"),
+      }),
+      expect.objectContaining({
+        installmentNumber: 2,
+        amount: 30000,
+        dueDate: new Date("2026-04-21T00:00:00.000Z"),
+      }),
+      expect.objectContaining({
+        installmentNumber: 3,
+        amount: 30000,
+        dueDate: new Date("2026-05-05T00:00:00.000Z"),
+      }),
+      expect.objectContaining({
+        installmentNumber: 4,
+        amount: 30000,
+        dueDate: new Date("2026-05-19T00:00:00.000Z"),
+      }),
+    ]);
+  });
+
   it("clamps monthly fixed-installment due dates to the last valid day of the target month", async () => {
     await service.create({
       lenderId: "lender-1",
@@ -74,6 +150,44 @@ describe("LoansService", () => {
     expect(createArgs.data.expectedEndDate.toISOString()).toBe(
       "2026-02-28T00:00:00.000Z",
     );
+  });
+
+  it("creates exact monthly due dates for fixed installments with rounded peso amounts", async () => {
+    await service.create({
+      lenderId: "lender-1",
+      clientId: "client-1",
+      type: LoanType.FIXED_INSTALLMENTS,
+      principalAmount: 100000,
+      installmentAmount: 30000,
+      totalInstallments: 4,
+      paymentFrequency: PaymentFrequency.MONTHLY,
+      startDate: "2026-01-31",
+    });
+
+    const createManyArgs = prisma.installment.createMany.mock.calls[0][0];
+
+    expect(createManyArgs.data).toEqual([
+      expect.objectContaining({
+        installmentNumber: 1,
+        amount: 30000,
+        dueDate: new Date("2026-02-28T00:00:00.000Z"),
+      }),
+      expect.objectContaining({
+        installmentNumber: 2,
+        amount: 30000,
+        dueDate: new Date("2026-03-31T00:00:00.000Z"),
+      }),
+      expect.objectContaining({
+        installmentNumber: 3,
+        amount: 30000,
+        dueDate: new Date("2026-04-30T00:00:00.000Z"),
+      }),
+      expect.objectContaining({
+        installmentNumber: 4,
+        amount: 30000,
+        dueDate: new Date("2026-05-31T00:00:00.000Z"),
+      }),
+    ]);
   });
 
   it("keeps client-provided expectedEndDate for non-fixed loans", async () => {

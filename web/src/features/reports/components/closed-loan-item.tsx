@@ -4,6 +4,7 @@ import {
   formatDateShort,
   formatLoanType,
 } from "@/shared/lib/format";
+import styles from "./closed-loan-item.module.css";
 
 type ClosedLoanItemProps = {
   item: {
@@ -26,37 +27,33 @@ export function ClosedLoanItem({
   href,
 }: ClosedLoanItemProps) {
   return (
-    <article className="rounded-[1.15rem] border border-[var(--line)] bg-[var(--surface)] p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="space-y-1">
-          <p className="text-sm font-semibold text-[var(--foreground)]">
-            {item.clientName}
-          </p>
-          <p className="text-sm text-[var(--muted)]">
-            {formatLoanType(item.loanType)} · Cerrado {formatDateShort(item.closedAt)}
+    <article className={styles.card}>
+      <div className={styles.head}>
+        <div className={styles.titleBlock}>
+          <p className={styles.clientName}>{item.clientName}</p>
+          <p className={styles.meta}>
+            {formatLoanType(item.loanType)} | Cerrado {formatDateShort(item.closedAt)}
           </p>
         </div>
-        <span className="rounded-full bg-[var(--success-soft)] px-3 py-1 text-[0.72rem] font-semibold uppercase tracking-[0.12em] text-[var(--success)]">
-          Pagado
-        </span>
+        <span className={styles.status}>Pagado</span>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-        <div className="summary-pill">
-          <span className="summary-pill-label">Monto original</span>
-          <strong>{formatCurrency(item.principalAmount)}</strong>
+      <div className={styles.summary}>
+        <div className={styles.cell}>
+          <span className={styles.label}>Monto original</span>
+          <strong className={styles.value}>{formatCurrency(item.principalAmount)}</strong>
         </div>
-        <div className="summary-pill">
-          <span className="summary-pill-label">Ultimo pago</span>
-          <strong>{formatCurrency(item.finalPaymentAmount)}</strong>
+        <div className={styles.cell}>
+          <span className={styles.label}>Ultimo pago</span>
+          <strong className={styles.value}>{formatCurrency(item.finalPaymentAmount)}</strong>
         </div>
       </div>
 
-      <div className="mt-4 flex items-center justify-between gap-3">
-        <div className="text-sm text-[var(--muted)]">
+      <div className={styles.footer}>
+        <div className={styles.footerNote}>
           {item.wasEarlySettlement ? "Cierre anticipado" : "Cierre regular"}
         </div>
-        <Link className="card-cta" href={href}>
+        <Link className={styles.cta} href={href}>
           Ver prestamo
         </Link>
       </div>

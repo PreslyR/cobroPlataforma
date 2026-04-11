@@ -5,6 +5,7 @@ import {
   formatLoanType,
   formatSettlementMode,
 } from "@/shared/lib/format";
+import styles from "./report-payment-item.module.css";
 
 type ReportPaymentItemProps = {
   item: {
@@ -28,57 +29,55 @@ export function ReportPaymentItem({
   item,
   href,
 }: ReportPaymentItemProps) {
+  const operationLabel = item.isEarlySettlement
+    ? "Liquidacion anticipada"
+    : "Pago regular";
+  const operationMeta = item.isEarlySettlement
+    ? `${item.earlySettlementInterestModeUsed ? `${formatSettlementMode(item.earlySettlementInterestModeUsed).toLowerCase()}` : ""}${
+        item.interestDaysCharged !== null && item.interestDaysCharged !== undefined
+          ? `${item.earlySettlementInterestModeUsed ? " | " : ""}${item.interestDaysCharged} dia(s)`
+          : ""
+      }`
+    : "Aplicado al flujo normal";
+
   return (
-    <article className="rounded-[1.15rem] border border-[var(--line)] bg-[var(--surface)] p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="space-y-1">
-          <p className="text-sm font-semibold text-[var(--foreground)]">
-            {item.clientName}
-          </p>
-          <p className="text-sm text-[var(--muted)]">
-            {formatLoanType(item.loanType)} · {formatDateShort(item.paymentDate)}
-          </p>
+    <article className={styles.card}>
+      <div className={styles.head}>
+        <div className={styles.titleRow}>
+          <div className={styles.titleBlock}>
+            <p className={styles.clientName}>{item.clientName}</p>
+            <p className={styles.meta}>
+              {formatLoanType(item.loanType)} | {formatDateShort(item.paymentDate)}
+            </p>
+          </div>
+          <p className={styles.amount}>{formatCurrency(item.totalAmount)}</p>
         </div>
-        <p className="text-right text-lg font-semibold tracking-tight text-[var(--foreground)]">
-          {formatCurrency(item.totalAmount)}
-        </p>
-      </div>
 
-      <div className="mt-4 grid grid-cols-3 gap-2 text-sm">
-        <div className="summary-pill">
-          <span className="summary-pill-label">Interes</span>
-          <strong>{formatCurrency(item.appliedToInterest)}</strong>
-        </div>
-        <div className="summary-pill">
-          <span className="summary-pill-label">Capital</span>
-          <strong>{formatCurrency(item.appliedToPrincipal)}</strong>
-        </div>
-        <div className="summary-pill">
-          <span className="summary-pill-label">Mora</span>
-          <strong>{formatCurrency(item.appliedToPenalty)}</strong>
+        <div className={styles.badgeRow}>
+          <span className={item.isEarlySettlement ? styles.badgeWarning : styles.badge}>
+            {operationLabel}
+          </span>
         </div>
       </div>
 
-      <div className="mt-4 flex items-center justify-between gap-3">
-        <div className="text-sm text-[var(--muted)]">
-          {item.isEarlySettlement ? (
-            <span>
-              Liquidacion anticipada
-              {item.earlySettlementInterestModeUsed
-                ? ` · ${formatSettlementMode(
-                    item.earlySettlementInterestModeUsed,
-                  ).toLowerCase()}`
-                : ""}
-              {item.interestDaysCharged !== null &&
-              item.interestDaysCharged !== undefined
-                ? ` · ${item.interestDaysCharged} dia(s)`
-                : ""}
-            </span>
-          ) : (
-            <span>Pago regular</span>
-          )}
+      <div className={styles.breakdown}>
+        <div className={styles.cell}>
+          <span className={styles.label}>Interes</span>
+          <strong className={styles.value}>{formatCurrency(item.appliedToInterest)}</strong>
         </div>
-        <Link className="card-cta" href={href}>
+        <div className={styles.cell}>
+          <span className={styles.label}>Capital</span>
+          <strong className={styles.value}>{formatCurrency(item.appliedToPrincipal)}</strong>
+        </div>
+        <div className={styles.cell}>
+          <span className={styles.label}>Mora</span>
+          <strong className={styles.value}>{formatCurrency(item.appliedToPenalty)}</strong>
+        </div>
+      </div>
+
+      <div className={styles.footer}>
+        <div className={styles.footerNote}>{operationMeta}</div>
+        <Link className={styles.cta} href={href}>
           Ver prestamo
         </Link>
       </div>

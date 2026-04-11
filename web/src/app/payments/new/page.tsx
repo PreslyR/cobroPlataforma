@@ -1,4 +1,5 @@
-import Link from "next/link";
+﻿import Link from "next/link";
+import styles from "./payments-selection.module.css";
 import { getLoanDetailPageData } from "@/features/loan-detail/lib/api";
 import { getPortfolio } from "@/features/portfolio/lib/api";
 import { PaymentFormShell } from "@/features/payments/components/payment-form-shell";
@@ -88,7 +89,7 @@ export default async function NewPaymentPage({
               defecto para poder seleccionar un prestamo.
             </p>
             <Link className="inline-link" href={dashboardHref}>
-              Volver al Dashboard
+              Volver al inicio
             </Link>
           </section>
         </main>
@@ -121,7 +122,7 @@ export default async function NewPaymentPage({
           <section className="panel gap-4">
             <p className="eyebrow text-[var(--danger)]">Pago no disponible</p>
             <h1 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">
-              No pude cargar la selección de préstamos.
+              No pude cargar la seleccion de prestamos.
             </h1>
             <p className="text-sm leading-6 text-[var(--muted)]">
               Verifica que el backend este corriendo en{" "}
@@ -131,7 +132,7 @@ export default async function NewPaymentPage({
               {dueTodayResult.error}
             </div>
             <Link className="inline-link" href={dashboardHref}>
-              Volver al Dashboard
+              Volver al inicio
             </Link>
           </section>
         </main>
@@ -144,7 +145,7 @@ export default async function NewPaymentPage({
           <section className="panel gap-4">
             <p className="eyebrow text-[var(--danger)]">Pago no disponible</p>
             <h1 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">
-              No pude cargar la selección de préstamos.
+              No pude cargar la seleccion de prestamos.
             </h1>
             <p className="text-sm leading-6 text-[var(--muted)]">
               Verifica que el backend este corriendo en{" "}
@@ -154,7 +155,7 @@ export default async function NewPaymentPage({
               {overdueResult.error}
             </div>
             <Link className="inline-link" href={dashboardHref}>
-              Volver al Dashboard
+              Volver al inicio
             </Link>
           </section>
         </main>
@@ -167,7 +168,7 @@ export default async function NewPaymentPage({
           <section className="panel gap-4">
             <p className="eyebrow text-[var(--danger)]">Pago no disponible</p>
             <h1 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">
-              No pude cargar la búsqueda de préstamos.
+              No pude cargar la busqueda de prestamos.
             </h1>
             <p className="text-sm leading-6 text-[var(--muted)]">
               Verifica que el backend este corriendo en{" "}
@@ -177,7 +178,7 @@ export default async function NewPaymentPage({
               {searchResult.error}
             </div>
             <Link className="inline-link" href={dashboardHref}>
-              Volver al Dashboard
+              Volver al inicio
             </Link>
           </section>
         </main>
@@ -196,37 +197,35 @@ export default async function NewPaymentPage({
       });
 
     return (
-      <main className="page-shell">
+      <main className={`page-shell ${styles.pageShell}`}>
         <ContextHeader
           backHref={dashboardHref}
-          backLabel="Volver al dashboard"
+          backLabel="Volver al inicio"
           title="Registrar pago"
           subtitle={`Seleccion por fecha ${date}`}
           secondaryHref={`/portfolio${buildQueryString({ lenderId, date })}`}
           secondaryLabel="Cartera"
         />
 
-        <section className="panel gap-4">
-          <p className="eyebrow">Registrar pago</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">
-            Selecciona el prestamo
-          </h1>
-          <p className="text-sm leading-6 text-[var(--muted)]">
-            Puedes arrancar el cobro desde vencimientos de hoy, atrasados o buscar
-            por nombre del cliente.
-          </p>
+        <section className={`panel ${styles.selectionPanel}`}>
+          <div className={styles.selectionHeading}>
+            <p className="eyebrow">Registrar pago</p>
+            <h1 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">
+              Selecciona el prestamo
+            </h1>
+            <p className={styles.selectionCopy}>
+              Arranca el cobro desde vencimientos de hoy, atrasados o con busqueda
+              por nombre del cliente.
+            </p>
+          </div>
 
-          <form className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto]">
-            <label className="surface-field">
-              <span className="surface-label">Fecha de corte</span>
-              <input
-                className="surface-input"
-                type="date"
-                name="date"
-                defaultValue={date}
-                max={today}
-              />
-            </label>
+          <form className={styles.controlsForm}>
+            <input type="hidden" name="lenderId" value={lenderId} />
+            {origin ? <input type="hidden" name="origin" value={origin} /> : null}
+            {clientId ? <input type="hidden" name="clientId" value={clientId} /> : null}
+            {from ? <input type="hidden" name="from" value={from} /> : null}
+            {to ? <input type="hidden" name="to" value={to} /> : null}
+
             <label className="surface-field">
               <span className="surface-label">Buscar por nombre</span>
               <input
@@ -237,25 +236,33 @@ export default async function NewPaymentPage({
                 placeholder="Ej. Juan Perez"
               />
             </label>
-            <input type="hidden" name="lenderId" value={lenderId} />
-            {origin ? <input type="hidden" name="origin" value={origin} /> : null}
-            {clientId ? <input type="hidden" name="clientId" value={clientId} /> : null}
-            {from ? <input type="hidden" name="from" value={from} /> : null}
-            {to ? <input type="hidden" name="to" value={to} /> : null}
-            <button className="surface-button" type="submit">
-              Buscar
-            </button>
+
+            <div className={styles.controlBar}>
+              <label className={styles.controlField}>
+                <span className={styles.controlLabel}>Fecha de corte</span>
+                <input
+                  className={styles.controlInput}
+                  type="date"
+                  name="date"
+                  defaultValue={date}
+                  max={today}
+                />
+              </label>
+              <button className={styles.controlButton} type="submit">
+                Buscar
+              </button>
+            </div>
           </form>
         </section>
 
         {search ? (
-          <section className="panel gap-4">
-            <div className="flex items-end justify-between gap-3">
+          <section className={`panel ${styles.resultsSection}`}>
+            <div className={styles.sectionHeading}>
               <div>
                 <p className="eyebrow">Busqueda</p>
                 <h2 className="section-title">Resultados por nombre</h2>
               </div>
-              <p className="text-sm text-[var(--muted)]">
+              <p className={styles.sectionCount}>
                 {searchResult?.ok ? searchResult.data.count : 0} registro(s)
               </p>
             </div>
@@ -272,19 +279,19 @@ export default async function NewPaymentPage({
               </div>
             ) : (
               <div className="empty-panel">
-                No encontré préstamos activos con ese nombre.
+                No encontre prestamos activos con ese nombre.
               </div>
             )}
           </section>
         ) : null}
 
-        <section className="panel gap-4">
-          <div className="flex items-end justify-between gap-3">
+        <section className={`panel ${styles.resultsSection}`}>
+          <div className={styles.sectionHeading}>
             <div>
               <p className="eyebrow">Cobro rapido</p>
               <h2 className="section-title">Vence hoy</h2>
             </div>
-            <p className="text-sm text-[var(--muted)]">
+            <p className={styles.sectionCount}>
               {dueTodayResult.data.count} registro(s)
             </p>
           </div>
@@ -301,18 +308,18 @@ export default async function NewPaymentPage({
             </div>
           ) : (
             <div className="empty-panel">
-              No hay préstamos que venzan hoy para esta fecha.
+              No hay prestamos que venzan hoy para esta fecha.
             </div>
           )}
         </section>
 
-        <section className="panel gap-4">
-          <div className="flex items-end justify-between gap-3">
+        <section className={`panel ${styles.resultsSection}`}>
+          <div className={styles.sectionHeading}>
             <div>
               <p className="eyebrow">Cobro rapido</p>
               <h2 className="section-title">Atrasados</h2>
             </div>
-            <p className="text-sm text-[var(--muted)]">
+            <p className={styles.sectionCount}>
               {overdueResult.data.count} registro(s)
             </p>
           </div>
@@ -328,9 +335,7 @@ export default async function NewPaymentPage({
               ))}
             </div>
           ) : (
-            <div className="empty-panel">
-              No hay cartera atrasada para esta fecha.
-            </div>
+            <div className="empty-panel">No hay cartera atrasada para esta fecha.</div>
           )}
         </section>
       </main>

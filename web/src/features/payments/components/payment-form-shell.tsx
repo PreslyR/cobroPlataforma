@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -24,6 +24,7 @@ import {
   formatSettlementMode,
 } from "@/shared/lib/format";
 import { ContextHeader } from "@/shared/components/context-header";
+import styles from "./payment-form-shell.module.css";
 
 type PaymentFormShellProps = {
   loanData: LoanDetailPageData;
@@ -272,55 +273,46 @@ export function PaymentFormShell({
   }
 
   return (
-    <main className="page-shell">
+    <main className={`page-shell ${styles.pageShell}`}>
       <ContextHeader
         backHref={backHref}
         backLabel="Cancelar"
         backIcon="close"
         backOnClick={handleCancelIntent}
         title="Registrar pago"
-        subtitle={`${formatLoanType(loanData.loan.type)} · ${loanData.loan.id.slice(0, 8)}`}
+        subtitle={`${formatLoanType(loanData.loan.type)} | ${loanData.loan.id.slice(0, 8)}`}
         secondaryHref={loanDetailHref}
         secondaryLabel="Prestamo"
       />
 
-      <section className="panel gap-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-2">
-            <p className="eyebrow">Registrar pago</p>
-            <h1 className="text-[2rem] font-semibold leading-tight tracking-tight text-[var(--foreground)]">
-              {loanData.loan.client.fullName}
-            </h1>
-            <p className="text-sm leading-6 text-[var(--muted)]">
-              {formatLoanType(loanData.loan.type)} · Total cobrable hoy {" "}
-              {formatCurrency(summary.totalCollectibleToday)}
-            </p>
-          </div>
+      <section className={`panel ${styles.summarySection}`}>
+        <div className={styles.summaryCopy}>
+          <p className="eyebrow">Registrar pago</p>
+          <h1 className={styles.summaryTitle}>{loanData.loan.client.fullName}</h1>
+          <p className={styles.summarySubtitle}>
+            {formatLoanType(loanData.loan.type)} | Total cobrable hoy{" "}
+            {formatCurrency(summary.totalCollectibleToday)}
+          </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-[1.25rem] bg-[var(--surface)] p-4">
-            <p className="text-xs uppercase tracking-[0.1em] text-[var(--muted)]">
-              Total cobrable hoy
-            </p>
-            <p className="mt-2 text-2xl font-semibold leading-none text-[var(--foreground)]">
+        <div className={styles.summaryGrid}>
+          <div className={styles.summaryCell}>
+            <p className={styles.summaryLabel}>Total cobrable hoy</p>
+            <p className={styles.summaryValue}>
               {formatCurrency(summary.totalCollectibleToday)}
             </p>
           </div>
-          <div className="rounded-[1.25rem] bg-[var(--surface)] p-4">
-            <p className="text-xs uppercase tracking-[0.1em] text-[var(--muted)]">
-              Saldo pendiente
-            </p>
-            <p className="mt-2 text-2xl font-semibold leading-none text-[var(--foreground)]">
+          <div className={styles.summaryCell}>
+            <p className={styles.summaryLabel}>Saldo pendiente</p>
+            <p className={styles.summaryValue}>
               {formatCurrency(summary.outstandingBalance)}
             </p>
           </div>
         </div>
 
         {summary.overdue ? (
-          <div className="rounded-[1.2rem] border border-[var(--danger-soft)] bg-[var(--danger-soft)]/55 p-4 text-sm text-[var(--foreground)]">
-            Mora pendiente: {formatCurrency(summary.penalty.pending)} · {" "}
-            {summary.daysLate} dia(s) de atraso
+          <div className={styles.overdueNotice}>
+            Mora pendiente: {formatCurrency(summary.penalty.pending)} | {summary.daysLate} dia(s) de atraso
           </div>
         ) : null}
       </section>
@@ -331,25 +323,25 @@ export function PaymentFormShell({
             <p className="eyebrow">Operacion bloqueada</p>
             <h2 className="section-title">Prestamo cerrado</h2>
           </div>
-          <div className="rounded-[1.25rem] border border-[var(--line)] bg-[var(--surface)] p-4 text-sm leading-6 text-[var(--muted)]">
+          <div className={styles.blockedNotice}>
             Este prestamo ya no esta activo. La interfaz bloquea por completo
             nuevas acciones de pago o liquidacion.
           </div>
         </section>
       ) : (
         <>
-          <section className="panel gap-4">
+          <section className={`panel ${styles.formSection}`}>
             <div>
               <p className="eyebrow">Formulario</p>
               <h2 className="section-title">Datos del pago</h2>
             </div>
 
             <form
-              className="space-y-4"
+              className={styles.formContent}
               onSubmit={handleSubmit}
               onKeyDown={preventImplicitSubmit}
             >
-              <div className="grid gap-3">
+              <div className={styles.fieldGrid}>
                 <label className="surface-field">
                   <span className="surface-label">Fecha del pago</span>
                   <input
@@ -364,7 +356,7 @@ export function PaymentFormShell({
                 <label className="surface-field">
                   <span className="surface-label">Monto recibido</span>
                   <input
-                    className="surface-input text-2xl font-semibold"
+                    className={`surface-input ${styles.amountInput}`}
                     type="text"
                     inputMode="numeric"
                     placeholder="0"
@@ -377,9 +369,9 @@ export function PaymentFormShell({
                 </label>
               </div>
 
-              <div className="space-y-3">
+              <div className={styles.optionBlock}>
                 <p className="surface-label">Tipo de operacion</p>
-                <div className="flex flex-wrap gap-2">
+                <div className={styles.chipsRow}>
                   <button
                     className={`filter-chip ${
                       operationType === "REGULAR_PAYMENT"
@@ -408,16 +400,16 @@ export function PaymentFormShell({
                 </div>
 
                 {!canUseEarlySettlement ? (
-                  <p className="text-sm leading-6 text-[var(--muted)]">
+                  <p className={styles.helperCopy}>
                     Este tipo de prestamo solo permite pago normal en esta etapa.
                   </p>
                 ) : null}
               </div>
 
               {isEarlySettlement && canUseEarlySettlement ? (
-                <div className="rounded-[1.25rem] bg-[var(--surface)] p-4">
+                <div className={styles.modePanel}>
                   <p className="surface-label">Modo de liquidacion</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
+                  <div className={styles.chipsRow}>
                     <button
                       className={`filter-chip ${
                         settlementMode === "FULL_MONTH"
@@ -441,78 +433,66 @@ export function PaymentFormShell({
                       Prorrateado por dias
                     </button>
                   </div>
-                  <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
+                  <p className={styles.helperCopy}>
                     El backend definira el interes cobrable del periodo actual
                     segun el modo elegido.
                   </p>
                 </div>
               ) : null}
 
-              <section className="rounded-[1.35rem] border border-[var(--line)] bg-[var(--surface)] p-4">
-                <div className="flex items-end justify-between gap-3">
-                  <div>
-                    <p className="eyebrow">Simulacion</p>
-                    <h3 className="section-title">Distribucion estimada</h3>
-                  </div>
+              <section className={styles.simulationPanel}>
+                <div>
+                  <p className="eyebrow">Simulacion</p>
+                  <h3 className="section-title">Distribucion estimada</h3>
                 </div>
 
                 {simulation.status === "idle" ? (
-                  <div className="mt-4 text-sm leading-6 text-[var(--muted)]">
+                  <div className={styles.simulationState}>
                     Ingresa monto y fecha para ver como se aplicaria el pago.
                   </div>
                 ) : null}
 
                 {simulation.status === "loading" ? (
-                  <div className="mt-4 space-y-3">
-                    <div className="h-20 animate-pulse rounded-[1.1rem] bg-[var(--surface-strong)]" />
-                    <div className="h-20 animate-pulse rounded-[1.1rem] bg-[var(--surface-strong)]" />
+                  <div className={styles.simulationLoading}>
+                    <div className={styles.skeleton} />
+                    <div className={styles.skeleton} />
                   </div>
                 ) : null}
 
                 {simulation.status === "error" ? (
-                  <div className="mt-4 rounded-[1.1rem] border border-[var(--danger-soft)] bg-[var(--danger-soft)]/55 p-4 text-sm text-[var(--foreground)]">
-                    {simulation.message}
-                  </div>
+                  <div className={styles.errorMessage}>{simulation.message}</div>
                 ) : null}
 
                 {simulation.status === "success" ? (
-                  <div className="mt-4 space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-[1.1rem] bg-white/70 p-3">
-                        <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">
-                          A mora
-                        </p>
-                        <p className="mt-1 text-lg font-semibold text-[var(--foreground)]">
+                  <div className="space-y-4">
+                    <div className={styles.metricGrid}>
+                      <div className={styles.metricCell}>
+                        <p className={styles.metricLabel}>A mora</p>
+                        <p className={styles.metricValue}>
                           {formatCurrency(
                             simulation.data.distribution.appliedToPenalty,
                           )}
                         </p>
                       </div>
-                      <div className="rounded-[1.1rem] bg-white/70 p-3">
-                        <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">
-                          A interes
-                        </p>
-                        <p className="mt-1 text-lg font-semibold text-[var(--foreground)]">
+                      <div className={styles.metricCell}>
+                        <p className={styles.metricLabel}>A interes</p>
+                        <p className={styles.metricValue}>
                           {formatCurrency(
                             simulation.data.distribution.appliedToInterest,
                           )}
                         </p>
                       </div>
-                      <div className="rounded-[1.1rem] bg-white/70 p-3">
-                        <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">
-                          A capital
-                        </p>
-                        <p className="mt-1 text-lg font-semibold text-[var(--foreground)]">
+                      <div className={styles.metricCell}>
+                        <p className={styles.metricLabel}>A capital</p>
+                        <p className={styles.metricValue}>
                           {formatCurrency(
                             simulation.data.distribution.appliedToPrincipal,
                           )}
                         </p>
                       </div>
-                      <div className="rounded-[1.1rem] bg-white/70 p-3">
-                        <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">
-                          Sobrante
-                        </p>
-                        <p className="mt-1 text-lg font-semibold text-[var(--foreground)]">
+                      <div className={styles.metricCell}>
+                        <p className={styles.metricLabel}>Sobrante</p>
+                        <p className={styles.metricValue}>
                           {formatCurrency(simulation.data.distribution.remaining)}
                         </p>
                       </div>
@@ -520,22 +500,22 @@ export function PaymentFormShell({
 
                     {simulation.data.operationType === "EARLY_SETTLEMENT" &&
                     simulation.data.payoff ? (
-                      <div className="rounded-[1.1rem] border border-[var(--brand-soft)] bg-[var(--brand-soft)]/55 p-4 text-sm text-[var(--foreground)]">
-                        <p className="font-semibold">
+                      <div className={styles.payoffNotice}>
+                        <p className={styles.payoffTitle}>
                           Total para saldar:{" "}
                           {formatCurrency(simulation.data.payoff.totalPayoff)}
                         </p>
-                        <p className="mt-2 leading-6 text-[var(--muted)]">
+                        <p className={styles.payoffMeta}>
                           Modo usado:{" "}
                           {formatSettlementMode(
                             simulation.data.modeUsed ?? "FULL_MONTH",
                           )}
                           {simulation.data.interestDaysCharged !== null
-                            ? ` · ${simulation.data.interestDaysCharged} dia(s)`
+                            ? ` | ${simulation.data.interestDaysCharged} dia(s)`
                             : ""}
                         </p>
                         {!simulation.data.isAmountSufficient ? (
-                          <p className="mt-2 leading-6 text-[var(--danger)]">
+                          <p className={styles.payoffWarning}>
                             El monto actual no alcanza para cerrar el prestamo.
                           </p>
                         ) : null}
@@ -546,14 +526,12 @@ export function PaymentFormShell({
               </section>
 
               {submitState.status === "error" ? (
-                <div className="rounded-[1.1rem] border border-[var(--danger-soft)] bg-[var(--danger-soft)]/55 p-4 text-sm text-[var(--foreground)]">
-                  {submitState.message}
-                </div>
+                <div className={styles.errorMessage}>{submitState.message}</div>
               ) : null}
 
-              <div className="grid grid-cols-[1fr_auto] gap-3">
+              <div className={styles.actionRow}>
                 <button
-                  className="surface-button text-center"
+                  className={styles.actionButtonSecondary}
                   type="button"
                   onClick={handleCancelIntent}
                   disabled={submitState.status === "submitting"}
@@ -561,7 +539,7 @@ export function PaymentFormShell({
                   Cancelar
                 </button>
                 <button
-                  className="surface-button"
+                  className={styles.actionButtonPrimary}
                   type="submit"
                   disabled={isSubmitDisabled}
                 >
@@ -576,46 +554,38 @@ export function PaymentFormShell({
           </section>
 
           {submitState.status === "success" ? (
-            <section className="panel gap-4">
+            <section className={`panel ${styles.resultSection}`}>
               <div>
                 <p className="eyebrow">Resultado</p>
                 <h2 className="section-title">Pago registrado</h2>
               </div>
 
-              <div className="rounded-[1.25rem] bg-[var(--success-soft)] p-4">
-                <p className="text-sm leading-6 text-[var(--foreground)]">
-                  Pago de {formatCurrency(submitState.data.payment.totalAmount)}
-                  {" "}aplicado el{" "}
-                  {formatDateShort(submitState.data.payment.paymentDate)}.
+              <div className={styles.resultNotice}>
+                <p className={styles.resultNoticeText}>
+                  Pago de {formatCurrency(submitState.data.payment.totalAmount)} aplicado el {formatDateShort(submitState.data.payment.paymentDate)}.
                 </p>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-[1.1rem] bg-[var(--surface)] p-3">
-                  <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">
-                    Mora
-                  </p>
-                  <p className="mt-1 text-lg font-semibold text-[var(--foreground)]">
+              <div className={styles.resultGrid}>
+                <div className={styles.metricCell}>
+                  <p className={styles.metricLabel}>Mora</p>
+                  <p className={styles.metricValue}>
                     {formatCurrency(
                       submitState.data.distribution.appliedToPenalty,
                     )}
                   </p>
                 </div>
-                <div className="rounded-[1.1rem] bg-[var(--surface)] p-3">
-                  <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">
-                    Interes
-                  </p>
-                  <p className="mt-1 text-lg font-semibold text-[var(--foreground)]">
+                <div className={styles.metricCell}>
+                  <p className={styles.metricLabel}>Interes</p>
+                  <p className={styles.metricValue}>
                     {formatCurrency(
                       submitState.data.distribution.appliedToInterest,
                     )}
                   </p>
                 </div>
-                <div className="rounded-[1.1rem] bg-[var(--surface)] p-3">
-                  <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">
-                    Capital
-                  </p>
-                  <p className="mt-1 text-lg font-semibold text-[var(--foreground)]">
+                <div className={styles.metricCell}>
+                  <p className={styles.metricLabel}>Capital</p>
+                  <p className={styles.metricValue}>
                     {formatCurrency(
                       submitState.data.distribution.appliedToPrincipal,
                     )}
@@ -623,17 +593,17 @@ export function PaymentFormShell({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Link className="surface-button text-center" href={loanDetailHref}>
+              <div className={styles.resultActions}>
+                <Link className={styles.linkButtonSecondary} href={loanDetailHref}>
                   Volver al prestamo
                 </Link>
                 {selectionHref ? (
-                  <Link className="surface-button text-center" href={selectionHref}>
+                  <Link className={styles.linkButton} href={selectionHref}>
                     Registrar otro pago
                   </Link>
                 ) : (
-                  <Link className="surface-button text-center" href={dashboardHref}>
-                    Volver al dashboard
+                  <Link className={styles.linkButton} href={dashboardHref}>
+                    Volver al inicio
                   </Link>
                 )}
               </div>
@@ -671,10 +641,10 @@ export function PaymentFormShell({
 
             <div className="confirm-modal-copy">
               <h2 className="confirm-modal-title" id="cancel-payment-title">
-                ¿Quieres cancelar el pago?
+                Quieres cancelar el pago?
               </h2>
               <p className="confirm-modal-subtitle">
-                Se perderán los datos que ya ingresaste en este formulario.
+                Se perderan los datos que ya ingresaste en este formulario.
               </p>
             </div>
 
@@ -684,7 +654,7 @@ export function PaymentFormShell({
                 type="button"
                 onClick={handleConfirmCancel}
               >
-                Sí, cancelar
+                Si, cancelar
               </button>
               <button
                 className="confirm-modal-button"

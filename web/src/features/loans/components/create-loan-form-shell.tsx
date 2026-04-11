@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import {
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -17,6 +18,7 @@ import {
   formatPaymentFrequency,
   formatSettlementMode,
 } from "@/shared/lib/format";
+import styles from "./create-loan-form-shell.module.css";
 
 type CreateLoanFormShellProps = {
   lenderId: string;
@@ -80,7 +82,9 @@ export function CreateLoanFormShell({
   const [loanType, setLoanType] = useState<"FIXED_INSTALLMENTS" | "MONTHLY_INTEREST">(
     "FIXED_INSTALLMENTS",
   );
-  const [clientId, setClientId] = useState(clients[0]?.id ?? "");
+  const [clientId, setClientId] = useState("");
+  const [clientSearch, setClientSearch] = useState("");
+  const [isClientPickerOpen, setIsClientPickerOpen] = useState(false);
   const [principalAmount, setPrincipalAmount] = useState("");
   const [monthlyInterestRate, setMonthlyInterestRate] = useState("0.15");
   const [installmentAmount, setInstallmentAmount] = useState("");
@@ -105,6 +109,21 @@ export function CreateLoanFormShell({
     () => clients.find((client) => client.id === clientId) ?? null,
     [clients, clientId],
   );
+  const filteredClients = useMemo(() => {
+    const query = clientSearch.trim().toLowerCase();
+
+    if (!query) {
+      return clients;
+    }
+
+    return clients.filter((client) => {
+      return (
+        client.fullName.toLowerCase().includes(query) ||
+        client.documentNumber.toLowerCase().includes(query) ||
+        (client.phone ?? "").toLowerCase().includes(query)
+      );
+    });
+  }, [clients, clientSearch]);
 
   const previewTypeLabel = formatLoanType(loanType);
   const previewPrincipal = Number(principalAmount || 0);
@@ -112,7 +131,41 @@ export function CreateLoanFormShell({
   const isSubmitDisabled =
     submitState.status === "submitting" ||
     submitState.status === "success" ||
-    clients.length === 0;
+    clients.length === 0 ||
+    !clientId;
+
+  useEffect(() => {
+    if (!isClientPickerOpen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isClientPickerOpen]);
+
+  useEffect(() => {
+    if (!isClientPickerOpen) {
+      return;
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsClientPickerOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", handleEscape as unknown as EventListener);
+    return () => {
+      window.removeEventListener(
+        "keydown",
+        handleEscape as unknown as EventListener,
+      );
+    };
+  }, [isClientPickerOpen]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -200,8 +253,14 @@ export function CreateLoanFormShell({
     setSubmitState({ status: "success", data: result.data });
   }
 
+  function handleClientSelect(client: ActiveClientOption) {
+    setClientId(client.id);
+    setClientSearch("");
+    setIsClientPickerOpen(false);
+  }
+
   return (
-    <main className="page-shell">
+    <main className={`page-shell ${styles.pageShell}`}>
       <ContextHeader
         backHref={dashboardHref}
         backLabel="Volver al dashboard"
@@ -209,66 +268,61 @@ export function CreateLoanFormShell({
         subtitle="Alta operativa del credito"
       />
 
-      <section className="panel gap-4">
-        <div className="space-y-2">
+      <section className={`panel ${styles.hero}`}>
+        <div className={styles.heroCopy}>
           <p className="eyebrow">Nuevo prestamo</p>
-          <h1 className="text-[2rem] font-semibold leading-tight tracking-tight text-[var(--foreground)]">
-            Abrir credito
-          </h1>
-          <p className="max-w-[22rem] text-sm leading-6 text-[var(--muted)]">
-            Formulario operativo para crear prestamos sin mover calculos al frontend.
+          <h1 className={styles.heroTitle}>Abrir credito</h1>
+          <p className={styles.heroSubtitle}>
+            Crea el prestamo y deja el calculo financiero en manos del backend.
           </p>
         </div>
 
-        <div className="rounded-[1.25rem] bg-[var(--surface)] p-4">
-          <p className="text-xs uppercase tracking-[0.1em] text-[var(--muted)]">
-            Cliente seleccionado
-          </p>
-          <p className="mt-2 text-lg font-semibold text-[var(--foreground)]">
-            {selectedClient?.fullName ?? "Sin cliente"}
-          </p>
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            {selectedClient
-              ? `Documento ${selectedClient.documentNumber}`
-              : "Selecciona un cliente activo del prestamista."}
-          </p>
-        </div>
+        <button
+          className={styles.clientCardButton}
+          type="button"
+          onClick={() => setIsClientPickerOpen(true)}
+        >
+          <div className={styles.clientCardHeader}>
+            <p className="eyebrow">Cliente</p>
+            <span className={styles.clientCardChevron} aria-hidden="true">
+              ›
+            </span>
+          </div>
+          {selectedClient ? (
+            <>
+              <p className={styles.clientName}>{selectedClient.fullName}</p>
+              <p className={styles.clientMeta}>C.C. {selectedClient.documentNumber}</p>
+            </>
+          ) : (
+            <>
+              <p className={styles.clientName}>Selecciona un cliente</p>
+              <p className={styles.clientMeta}>
+                Elige a quien se le abrira el prestamo.
+              </p>
+            </>
+          )}
+        </button>
       </section>
 
-      <section className="panel gap-4">
+      <section className={`panel ${styles.formSection}`}>
         <div>
           <p className="eyebrow">Formulario</p>
           <h2 className="section-title">Datos base</h2>
         </div>
 
         {clients.length === 0 ? (
-          <div className="empty-panel">
+          <div className={styles.emptyState}>
             No hay clientes activos para este prestamista. Primero crea un cliente.
           </div>
         ) : (
           <form
-            className="space-y-4"
+            className={styles.formContent}
             onSubmit={handleSubmit}
             onKeyDown={preventImplicitSubmit}
           >
-            <label className="surface-field">
-              <span className="surface-label">Cliente</span>
-              <select
-                className="surface-input"
-                value={clientId}
-                onChange={(event) => setClientId(event.target.value)}
-              >
-                {clients.map((client) => (
-                  <option key={client.id} value={client.id}>
-                    {client.fullName} · {client.documentNumber}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <div className="space-y-3">
+            <div className={styles.optionBlock}>
               <p className="surface-label">Tipo de prestamo</p>
-              <div className="flex flex-wrap gap-2">
+              <div className={styles.chipsRow}>
                 <button
                   className={`filter-chip ${
                     loanType === "FIXED_INSTALLMENTS" ? "filter-chip-active" : ""
@@ -290,11 +344,11 @@ export function CreateLoanFormShell({
               </div>
             </div>
 
-            <div className="grid gap-3">
+            <div className={styles.fieldGrid}>
               <label className="surface-field">
                 <span className="surface-label">Monto prestado</span>
                 <input
-                  className="surface-input text-2xl font-semibold"
+                  className={`surface-input ${styles.amountInput}`}
                   type="text"
                   inputMode="numeric"
                   placeholder="0"
@@ -306,7 +360,7 @@ export function CreateLoanFormShell({
                 />
               </label>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className={styles.twoColumnGrid}>
                 <label className="surface-field">
                   <span className="surface-label">Fecha de inicio</span>
                   <input
@@ -331,8 +385,13 @@ export function CreateLoanFormShell({
             </div>
 
             {loanType === "FIXED_INSTALLMENTS" ? (
-              <div className="space-y-4 rounded-[1.25rem] bg-[var(--surface)] p-4">
-                <div className="grid grid-cols-2 gap-3">
+              <div className={styles.configPanel}>
+                <div>
+                  <p className="eyebrow">Configuracion</p>
+                  <h3 className="section-title">Cuotas fijas</h3>
+                </div>
+
+                <div className={styles.twoColumnGrid}>
                   <label className="surface-field">
                     <span className="surface-label">Valor de cuota</span>
                     <input
@@ -366,31 +425,31 @@ export function CreateLoanFormShell({
                   </label>
                 </div>
 
-                <label className="surface-field">
-                  <span className="surface-label">Frecuencia</span>
-                  <select
-                    className="surface-input"
-                    value={paymentFrequency}
-                    onChange={(event) =>
-                      setPaymentFrequency(
-                        event.target.value as
-                          | "DAILY"
-                          | "WEEKLY"
-                          | "BIWEEKLY"
-                          | "MONTHLY",
-                      )
-                    }
-                  >
+                <div className={styles.optionBlock}>
+                  <p className="surface-label">Frecuencia</p>
+                  <div className={styles.chipsRow}>
                     {fixedFrequencyOptions.map((frequency) => (
-                      <option key={frequency} value={frequency}>
+                      <button
+                        key={frequency}
+                        className={`filter-chip ${
+                          paymentFrequency === frequency ? "filter-chip-active" : ""
+                        }`}
+                        type="button"
+                        onClick={() => setPaymentFrequency(frequency)}
+                      >
                         {formatPaymentFrequency(frequency)}
-                      </option>
+                      </button>
                     ))}
-                  </select>
-                </label>
+                  </div>
+                </div>
               </div>
             ) : (
-              <div className="space-y-4 rounded-[1.25rem] bg-[var(--surface)] p-4">
+              <div className={styles.configPanel}>
+                <div>
+                  <p className="eyebrow">Configuracion</p>
+                  <h3 className="section-title">Interes mensual</h3>
+                </div>
+
                 <label className="surface-field">
                   <span className="surface-label">Tasa mensual</span>
                   <input
@@ -407,88 +466,100 @@ export function CreateLoanFormShell({
                   />
                 </label>
 
-                <label className="surface-field">
-                  <span className="surface-label">Liquidacion anticipada</span>
-                  <select
-                    className="surface-input"
-                    value={earlySettlementInterestMode}
-                    onChange={(event) =>
-                      setEarlySettlementInterestMode(
-                        event.target.value as "FULL_MONTH" | "PRORATED_BY_DAYS",
-                      )
-                    }
-                  >
-                    <option value="FULL_MONTH">Mes completo</option>
-                    <option value="PRORATED_BY_DAYS">Prorrateado por dias</option>
-                  </select>
-                </label>
+                <div className={styles.optionBlock}>
+                  <p className="surface-label">Liquidacion anticipada</p>
+                  <div className={styles.chipsRow}>
+                    <button
+                      className={`filter-chip ${
+                        earlySettlementInterestMode === "FULL_MONTH"
+                          ? "filter-chip-active"
+                          : ""
+                      }`}
+                      type="button"
+                      onClick={() => setEarlySettlementInterestMode("FULL_MONTH")}
+                    >
+                      Mes completo
+                    </button>
+                    <button
+                      className={`filter-chip ${
+                        earlySettlementInterestMode === "PRORATED_BY_DAYS"
+                          ? "filter-chip-active"
+                          : ""
+                      }`}
+                      type="button"
+                      onClick={() =>
+                        setEarlySettlementInterestMode("PRORATED_BY_DAYS")
+                      }
+                    >
+                      Prorrateado
+                    </button>
+                  </div>
+                </div>
 
-                <p className="text-sm leading-6 text-[var(--muted)]">
+                <p className={styles.helperCopy}>
                   La frecuencia para interes mensual queda fija en{" "}
                   {formatPaymentFrequency("MONTHLY")}.
                 </p>
               </div>
             )}
 
-            <section className="rounded-[1.35rem] border border-[var(--line)] bg-[var(--surface)] p-4">
-              <p className="eyebrow">Resumen</p>
-              <div className="mt-3 space-y-2 text-sm text-[var(--muted)]">
-                <p>
-                  Tipo:{" "}
-                  <strong className="text-[var(--foreground)]">{previewTypeLabel}</strong>
-                </p>
-                <p>
-                  Capital:{" "}
-                  <strong className="text-[var(--foreground)]">
-                    {formatCurrency(previewPrincipal)}
-                  </strong>
-                </p>
+            <section className={styles.summaryPanel}>
+              <div>
+                <p className="eyebrow">Resumen</p>
+                <h3 className="section-title">Vista previa del prestamo</h3>
+              </div>
+
+              <div className={styles.summaryGrid}>
+                <div className={styles.summaryCell}>
+                  <p className={styles.summaryLabel}>Tipo</p>
+                  <p className={styles.summaryValue}>{previewTypeLabel}</p>
+                </div>
+                <div className={styles.summaryCell}>
+                  <p className={styles.summaryLabel}>Capital</p>
+                  <p className={styles.summaryValue}>{formatCurrency(previewPrincipal)}</p>
+                </div>
                 {loanType === "FIXED_INSTALLMENTS" ? (
                   <>
-                    <p>
-                      Cuota:{" "}
-                      <strong className="text-[var(--foreground)]">
+                    <div className={styles.summaryCell}>
+                      <p className={styles.summaryLabel}>Cuota</p>
+                      <p className={styles.summaryValue}>
                         {formatCurrency(previewInstallment)}
-                      </strong>
-                    </p>
-                    <p>
-                      Frecuencia:{" "}
-                      <strong className="text-[var(--foreground)]">
+                      </p>
+                    </div>
+                    <div className={styles.summaryCell}>
+                      <p className={styles.summaryLabel}>Frecuencia</p>
+                      <p className={styles.summaryValue}>
                         {formatPaymentFrequency(paymentFrequency)}
-                      </strong>
-                    </p>
+                      </p>
+                    </div>
                   </>
                 ) : (
                   <>
-                    <p>
-                      Tasa mensual:{" "}
-                      <strong className="text-[var(--foreground)]">
-                        {monthlyInterestRate}
-                      </strong>
-                    </p>
-                    <p>
-                      Liquidacion:{" "}
-                      <strong className="text-[var(--foreground)]">
+                    <div className={styles.summaryCell}>
+                      <p className={styles.summaryLabel}>Tasa mensual</p>
+                      <p className={styles.summaryValue}>{monthlyInterestRate}</p>
+                    </div>
+                    <div className={styles.summaryCell}>
+                      <p className={styles.summaryLabel}>Liquidacion</p>
+                      <p className={styles.summaryValue}>
                         {formatSettlementMode(earlySettlementInterestMode)}
-                      </strong>
-                    </p>
+                      </p>
+                    </div>
                   </>
                 )}
               </div>
             </section>
 
             {submitState.status === "error" ? (
-              <div className="rounded-[1.1rem] border border-[var(--danger-soft)] bg-[var(--danger-soft)]/55 p-4 text-sm text-[var(--foreground)]">
-                {submitState.message}
-              </div>
+              <div className={styles.errorMessage}>{submitState.message}</div>
             ) : null}
 
-            <div className="grid grid-cols-[1fr_auto] gap-3">
-              <Link className="surface-button text-center" href={dashboardHref}>
+            <div className={styles.actionRow}>
+              <Link className={styles.actionButtonSecondary} href={dashboardHref}>
                 Cancelar
               </Link>
               <button
-                className="surface-button"
+                className={styles.actionButtonPrimary}
                 type="submit"
                 disabled={isSubmitDisabled}
               >
@@ -504,45 +575,113 @@ export function CreateLoanFormShell({
       </section>
 
       {submitState.status === "success" ? (
-        <section className="panel gap-4">
+        <section className={`panel ${styles.resultSection}`}>
           <div>
             <p className="eyebrow">Resultado</p>
             <h2 className="section-title">Prestamo creado</h2>
           </div>
 
-          <div className="rounded-[1.25rem] bg-[var(--success-soft)] p-4">
-            <p className="text-sm leading-6 text-[var(--foreground)]">
+          <div className={styles.resultNotice}>
+            <p className={styles.resultNoticeText}>
               Se abrio un prestamo de {formatCurrency(submitState.data.principalAmount)} para{" "}
               {submitState.data.client.fullName}.
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-[1.1rem] bg-[var(--surface)] p-3">
-              <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">
-                Tipo
-              </p>
-              <p className="mt-1 font-semibold text-[var(--foreground)]">
+          <div className={styles.resultGrid}>
+            <div className={styles.summaryCell}>
+              <p className={styles.summaryLabel}>Tipo</p>
+              <p className={styles.summaryValue}>
                 {formatLoanType(submitState.data.type)}
               </p>
             </div>
-            <div className="rounded-[1.1rem] bg-[var(--surface)] p-3">
-              <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">
-                Estado
-              </p>
-              <p className="mt-1 font-semibold text-[var(--foreground)]">
-                {submitState.data.status}
-              </p>
+            <div className={styles.summaryCell}>
+              <p className={styles.summaryLabel}>Estado</p>
+              <p className={styles.summaryValue}>{submitState.data.status}</p>
             </div>
           </div>
 
           <Link
-            className="surface-button text-center"
+            className={styles.successLink}
             href={`/loans/${submitState.data.id}?lenderId=${encodeURIComponent(lenderId)}&date=${encodeURIComponent(startDate)}`}
           >
             Ir al prestamo
           </Link>
         </section>
+      ) : null}
+
+      {isClientPickerOpen ? (
+        <div
+          className={styles.clientPickerOverlay}
+          role="presentation"
+          onClick={() => setIsClientPickerOpen(false)}
+        >
+          <div
+            className={styles.clientPickerCard}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="client-picker-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className={styles.clientPickerHeader}>
+              <div>
+                <p className="eyebrow">Clientes</p>
+                <h2 className="section-title" id="client-picker-title">
+                  Seleccionar cliente
+                </h2>
+              </div>
+              <button
+                className={styles.clientPickerClose}
+                type="button"
+                onClick={() => setIsClientPickerOpen(false)}
+                aria-label="Cerrar selector de clientes"
+              >
+                ×
+              </button>
+            </div>
+
+            <label className="surface-field">
+              <span className="surface-label">Buscar</span>
+              <input
+                className="surface-input"
+                type="text"
+                placeholder="Nombre, cedula o telefono"
+                value={clientSearch}
+                onChange={(event) => setClientSearch(event.target.value)}
+              />
+            </label>
+
+            <div className={styles.clientPickerList}>
+              {filteredClients.length > 0 ? (
+                filteredClients.map((client) => (
+                  <button
+                    key={client.id}
+                    className={`${styles.clientPickerItem} ${
+                      client.id === clientId ? styles.clientPickerItemActive : ""
+                    }`}
+                    type="button"
+                    onClick={() => handleClientSelect(client)}
+                  >
+                    <div className={styles.clientPickerItemCopy}>
+                      <p className={styles.clientPickerItemName}>{client.fullName}</p>
+                      <p className={styles.clientPickerItemMeta}>
+                        C.C. {client.documentNumber}
+                        {client.phone ? ` | ${client.phone}` : ""}
+                      </p>
+                    </div>
+                    <span className={styles.clientPickerItemChevron} aria-hidden="true">
+                      ›
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <div className={styles.clientPickerEmpty}>
+                  No encontre clientes con esa busqueda.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       ) : null}
     </main>
   );

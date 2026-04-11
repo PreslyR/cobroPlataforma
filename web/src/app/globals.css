@@ -128,6 +128,8 @@ input {
   background: rgba(255, 255, 255, 0.08);
   color: white;
   padding: 0.85rem 0.95rem;
+  width: 100%;
+  display: block;
   outline: none;
 }
 
@@ -138,6 +140,8 @@ input {
   background: rgba(255, 255, 255, 0.78);
   color: var(--foreground);
   padding: 0.85rem 0.95rem;
+  width: 100%;
+  display: block;
   outline: none;
 }
 
