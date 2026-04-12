@@ -1,10 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { LoanStatus, LoanType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { measureAsync } from '../../common/perf/perf-logger';
 
 @Injectable()
 export class InterestCalculationService {
   private static readonly MONEY_EPSILON = 0.01;
+  private readonly logger = new Logger(InterestCalculationService.name);
 
   constructor(private prisma: PrismaService) {}
 
@@ -69,20 +71,29 @@ export class InterestCalculationService {
     asOfDate: Date,
   ): Promise<number> {
     return this.prisma.$transaction(async (tx) => {
-      await this.lockLoanRow(tx, loanId);
+      await measureAsync(
+        this.logger,
+        `interest.monthly(${loanId}).lockLoanRow`,
+        () => this.lockLoanRow(tx, loanId),
+      );
       const effectiveAsOfDate = this.clampToToday(asOfDate);
 
-      const loan = await tx.loan.findUnique({
-        where: { id: loanId },
-        select: {
-          id: true,
-          status: true,
-          type: true,
-          startDate: true,
-          principalAmount: true,
-          monthlyInterestRate: true,
-        },
-      });
+      const loan = await measureAsync(
+        this.logger,
+        `interest.monthly(${loanId}).loadLoan`,
+        () =>
+          tx.loan.findUnique({
+            where: { id: loanId },
+            select: {
+              id: true,
+              status: true,
+              type: true,
+              startDate: true,
+              principalAmount: true,
+              monthlyInterestRate: true,
+            },
+          }),
+      );
 
       if (!loan) {
         throw new Error('Loan not found');
@@ -95,31 +106,76 @@ export class InterestCalculationService {
         return 0;
       }
 
-      await tx.loanInterest.deleteMany({
-        where: {
-          loanId,
-          periodStartDate: { gt: effectiveAsOfDate },
-          interestPaid: 0,
-        },
-      });
+      const [latestCoveredInterest, futureUnpaidInterestsCount] =
+        await measureAsync(
+          this.logger,
+          `interest.monthly(${loanId}).checkCoverage`,
+          () =>
+            Promise.all([
+              tx.loanInterest.findFirst({
+                where: {
+                  loanId,
+                  periodStartDate: { lte: effectiveAsOfDate },
+                },
+                orderBy: { periodStartDate: 'desc' },
+                select: {
+                  periodEndDate: true,
+                },
+              }),
+              tx.loanInterest.count({
+                where: {
+                  loanId,
+                  periodStartDate: { gt: effectiveAsOfDate },
+                  interestPaid: 0,
+                },
+              }),
+            ]),
+        );
 
-      const [existingInterests, payments] = await Promise.all([
-        tx.loanInterest.findMany({
-          where: { loanId },
-          orderBy: { periodStartDate: 'asc' },
-          select: {
-            periodStartDate: true,
-          },
-        }),
-        tx.payment.findMany({
-          where: { loanId },
-          orderBy: { paymentDate: 'asc' },
-          select: {
-            paymentDate: true,
-            appliedToPrincipal: true,
-          },
-        }),
-      ]);
+      if (
+        futureUnpaidInterestsCount === 0 &&
+        latestCoveredInterest &&
+        this.toUtcDateOnly(latestCoveredInterest.periodEndDate) >=
+          effectiveAsOfDate
+      ) {
+        return 0;
+      }
+
+      await measureAsync(
+        this.logger,
+        `interest.monthly(${loanId}).deleteFutureUnpaidInterests`,
+        () =>
+          tx.loanInterest.deleteMany({
+            where: {
+              loanId,
+              periodStartDate: { gt: effectiveAsOfDate },
+              interestPaid: 0,
+            },
+          }),
+      );
+
+      const [existingInterests, payments] = await measureAsync(
+        this.logger,
+        `interest.monthly(${loanId}).loadExistingInterestsAndPayments`,
+        () =>
+          Promise.all([
+            tx.loanInterest.findMany({
+              where: { loanId },
+              orderBy: { periodStartDate: 'asc' },
+              select: {
+                periodStartDate: true,
+              },
+            }),
+            tx.payment.findMany({
+              where: { loanId },
+              orderBy: { paymentDate: 'asc' },
+              select: {
+                paymentDate: true,
+                appliedToPrincipal: true,
+              },
+            }),
+          ]),
+      );
 
       const existingPeriodKeys = new Set(
         existingInterests.map((interest) =>
@@ -127,10 +183,15 @@ export class InterestCalculationService {
         ),
       );
 
-      const periodsToCreate = this.resolveMonthlyPeriodsToCreate(
-        loan.startDate,
-        effectiveAsOfDate,
-        existingPeriodKeys,
+      const periodsToCreate = await measureAsync(
+        this.logger,
+        `interest.monthly(${loanId}).resolvePeriodsToCreate`,
+        async () =>
+          this.resolveMonthlyPeriodsToCreate(
+            loan.startDate,
+            effectiveAsOfDate,
+            existingPeriodKeys,
+          ),
       );
 
       if (periodsToCreate.length === 0) {
@@ -178,9 +239,14 @@ export class InterestCalculationService {
       );
 
       if (interestRows.length > 0) {
-        await tx.loanInterest.createMany({
-          data: interestRows,
-        });
+        await measureAsync(
+          this.logger,
+          `interest.monthly(${loanId}).createInterests x${interestRows.length}`,
+          () =>
+            tx.loanInterest.createMany({
+              data: interestRows,
+            }),
+        );
       }
 
       return interestRows.length;

@@ -1,10 +1,13 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { LoanStatus } from '@prisma/client';
 import { LoansService } from '../loans/loans.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { measureAsync } from '../common/perf/perf-logger';
 
 @Injectable()
 export class ReportsService {
+  private readonly logger = new Logger(ReportsService.name);
+
   constructor(
     private prisma: PrismaService,
     private loansService: LoansService,
@@ -65,17 +68,16 @@ export class ReportsService {
 
   async getPortfolioSummary(asOf?: string, lenderId?: string) {
     const asOfDate = this.parseDateOnlyOrNow(asOf);
-    const asOfKey = this.toDateKey(asOfDate);
-    const loans = await this.prisma.loan.findMany({
-      where: {
-        status: LoanStatus.ACTIVE,
-        ...(lenderId && { lenderId }),
-      },
-      select: {
-        id: true,
-        principalAmount: true,
-      },
-    });
+    const { snapshots } = await measureAsync(
+      this.logger,
+      'reports.getPortfolioSummary.activeLoanSnapshots',
+      () =>
+        this.loansService.getActiveLoanSnapshots({
+          asOf: asOfDate,
+          lenderId,
+          logLabel: 'reports.getPortfolioSummary',
+        }),
+    );
 
     let dueTodayLoans = 0;
     let overdueLoans = 0;
@@ -88,10 +90,8 @@ export class ReportsService {
     let overdueAmount = 0;
     let totalCollectibleToday = 0;
 
-    for (const loan of loans) {
-      const snapshot = await this.loansService.getDebtBreakdown(loan.id, asOfKey);
-
-      principalPlaced += loan.principalAmount;
+    for (const snapshot of snapshots) {
+      principalPlaced += snapshot.loan.principalAmount;
       capitalPending += snapshot.loan.currentPrincipal;
       outstandingBalance += snapshot.outstandingBalance;
       interestPending += snapshot.interest.totalPending;
@@ -113,7 +113,7 @@ export class ReportsService {
       asOfDate,
       lenderId: lenderId ?? null,
       totals: {
-        activeLoans: loans.length,
+        activeLoans: snapshots.length,
         dueTodayLoans,
         overdueLoans,
         principalPlaced,

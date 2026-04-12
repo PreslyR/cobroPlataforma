@@ -1,12 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { LoanStatus, LoanType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { measureAsync } from '../../common/perf/perf-logger';
 
 @Injectable()
 export class PenaltyCalculationService {
   private readonly fixedInstallmentPenaltyMonthlyRate = 0.2;
   private readonly monthlyInterestPenaltyMonthlyRate = 0.2;
   private static readonly MONEY_EPSILON = 0.01;
+  private readonly logger = new Logger(PenaltyCalculationService.name);
 
   constructor(private prisma: PrismaService) {}
 
@@ -61,19 +63,28 @@ export class PenaltyCalculationService {
   ) {
     const preserveFutureState = options.preserveFutureState ?? false;
     return this.prisma.$transaction(async (tx) => {
-      await this.lockLoanRow(tx, loanId);
+      await measureAsync(
+        this.logger,
+        `penalty.fixed(${loanId}).lockLoanRow`,
+        () => this.lockLoanRow(tx, loanId),
+      );
 
       const asOf = this.clampToToday(asOfDate);
       const paidInstallmentIds = (
-        await tx.installment.findMany({
-          where: {
-            loanId,
-            status: 'PAID',
-          },
-          select: {
-            id: true,
-          },
-        })
+        await measureAsync(
+          this.logger,
+          `penalty.fixed(${loanId}).loadPaidInstallments`,
+          () =>
+            tx.installment.findMany({
+              where: {
+                loanId,
+                status: 'PAID',
+              },
+              select: {
+                id: true,
+              },
+            }),
+        )
       ).map((installment) => installment.id);
 
       // If penalties were materialized using a later as-of date and we are now
@@ -81,54 +92,69 @@ export class PenaltyCalculationService {
       // no longer valid. Drop only the uncharged fixed-installment penalties
       // beyond the requested cutoff, then regenerate up to the effective date.
       if (!preserveFutureState) {
-        await tx.loanPenalty.deleteMany({
-          where: {
-            loanId,
-            installmentId: { not: null },
-            wasCharged: false,
-            OR: [
-              { periodEndDate: { gt: asOf } },
-              ...(paidInstallmentIds.length > 0
-                ? [{ installmentId: { in: paidInstallmentIds } }]
-                : []),
-            ],
-          },
-        });
+        await measureAsync(
+          this.logger,
+          `penalty.fixed(${loanId}).deleteFuturePenalties`,
+          () =>
+            tx.loanPenalty.deleteMany({
+              where: {
+                loanId,
+                installmentId: { not: null },
+                wasCharged: false,
+                OR: [
+                  { periodEndDate: { gt: asOf } },
+                  ...(paidInstallmentIds.length > 0
+                    ? [{ installmentId: { in: paidInstallmentIds } }]
+                    : []),
+                ],
+              },
+            }),
+        );
 
         // If a future as-of date previously marked installments as LATE, restore
         // any still-unpaid dues whose due date has not arrived yet for the
         // effective cutoff we are processing now.
-        await tx.installment.updateMany({
-          where: {
-            loanId,
-            status: 'LATE',
-            dueDate: { gte: asOf },
-          },
-          data: {
-            status: 'PENDING',
-          },
-        });
+        await measureAsync(
+          this.logger,
+          `penalty.fixed(${loanId}).restoreFutureLateInstallments`,
+          () =>
+            tx.installment.updateMany({
+              where: {
+                loanId,
+                status: 'LATE',
+                dueDate: { gte: asOf },
+              },
+              data: {
+                status: 'PENDING',
+              },
+            }),
+        );
       }
 
-      const loan = await tx.loan.findUnique({
-        where: { id: loanId },
-        select: {
-          id: true,
-          type: true,
-          installments: {
-            where: {
-              status: { in: ['PENDING', 'LATE'] },
-            },
-            orderBy: { dueDate: 'asc' },
+      const loan = await measureAsync(
+        this.logger,
+        `penalty.fixed(${loanId}).loadLoanAndInstallments`,
+        () =>
+          tx.loan.findUnique({
+            where: { id: loanId },
             select: {
               id: true,
-              dueDate: true,
-              amount: true,
-              status: true,
+              type: true,
+              installments: {
+                where: {
+                  status: { in: ['PENDING', 'LATE'] },
+                },
+                orderBy: { dueDate: 'asc' },
+                select: {
+                  id: true,
+                  dueDate: true,
+                  amount: true,
+                  status: true,
+                },
+              },
             },
-          },
-        },
-      });
+          }),
+      );
 
       if (!loan) {
         throw new Error('Loan not found');
@@ -137,7 +163,14 @@ export class PenaltyCalculationService {
       if (loan.type !== LoanType.FIXED_INSTALLMENTS) {
         return [];
       }
-      const createdPenalties = [];
+      const installmentIds = loan.installments.map((installment) => installment.id);
+      const latestCoveredDatesByInstallmentId = await measureAsync(
+        this.logger,
+        `penalty.fixed(${loanId}).loadLatestCoveredDates`,
+        () => this.getLatestCoveredDatesForInstallments(tx, installmentIds),
+      );
+      const installmentsToMarkLate: string[] = [];
+      const penaltiesToCreate: Prisma.LoanPenaltyCreateManyInput[] = [];
 
       for (const installment of loan.installments) {
         const due = this.toDateOnly(installment.dueDate);
@@ -146,16 +179,11 @@ export class PenaltyCalculationService {
         }
 
         if (installment.status === 'PENDING') {
-          await tx.installment.update({
-            where: { id: installment.id },
-            data: { status: 'LATE' },
-          });
+          installmentsToMarkLate.push(installment.id);
         }
 
-        const lastCoveredDate = await this.getLatestCoveredDateForInstallment(
-          tx,
-          installment.id,
-        );
+        const lastCoveredDate =
+          latestCoveredDatesByInstallmentId.get(installment.id) ?? null;
         const periodStart = lastCoveredDate
           ? this.toDateOnly(lastCoveredDate)
           : due;
@@ -175,22 +203,43 @@ export class PenaltyCalculationService {
           continue;
         }
 
-        const penalty = await tx.loanPenalty.create({
-          data: {
-            loanId,
-            installmentId: installment.id,
-            daysLate,
-            penaltyAmount,
-            wasCharged: false,
-            periodStartDate: periodStart,
-            periodEndDate: asOf,
-          },
+        penaltiesToCreate.push({
+          loanId,
+          installmentId: installment.id,
+          daysLate,
+          penaltyAmount,
+          wasCharged: false,
+          periodStartDate: periodStart,
+          periodEndDate: asOf,
         });
-
-        createdPenalties.push(penalty);
       }
 
-      return createdPenalties;
+      if (installmentsToMarkLate.length > 0) {
+        await measureAsync(
+          this.logger,
+          `penalty.fixed(${loanId}).markInstallmentsLate`,
+          () =>
+            tx.installment.updateMany({
+              where: {
+                id: { in: installmentsToMarkLate },
+              },
+              data: { status: 'LATE' },
+            }),
+        );
+      }
+
+      if (penaltiesToCreate.length > 0) {
+        await measureAsync(
+          this.logger,
+          `penalty.fixed(${loanId}).createPenalties x${penaltiesToCreate.length}`,
+          () =>
+            tx.loanPenalty.createMany({
+              data: penaltiesToCreate,
+            }),
+        );
+      }
+
+      return penaltiesToCreate;
     });
   }
 
@@ -209,38 +258,52 @@ export class PenaltyCalculationService {
   ) {
     const preserveFutureState = options.preserveFutureState ?? false;
     return this.prisma.$transaction(async (tx) => {
-      await this.lockLoanRow(tx, loanId);
+      await measureAsync(
+        this.logger,
+        `penalty.monthly(${loanId}).lockLoanRow`,
+        () => this.lockLoanRow(tx, loanId),
+      );
       const asOf = this.clampToToday(asOfDate);
 
       if (!preserveFutureState) {
-        await tx.loanPenalty.deleteMany({
-          where: {
-            loanId,
-            installmentId: null,
-            wasCharged: false,
-            periodEndDate: { gt: asOf },
-          },
-        });
+        await measureAsync(
+          this.logger,
+          `penalty.monthly(${loanId}).deleteFuturePenalties`,
+          () =>
+            tx.loanPenalty.deleteMany({
+              where: {
+                loanId,
+                installmentId: null,
+                wasCharged: false,
+                periodEndDate: { gt: asOf },
+              },
+            }),
+        );
       }
 
-      const loan = await tx.loan.findUnique({
-        where: { id: loanId },
-        select: {
-          id: true,
-          status: true,
-          type: true,
-          interests: {
-            orderBy: { periodStartDate: 'asc' },
+      const loan = await measureAsync(
+        this.logger,
+        `penalty.monthly(${loanId}).loadLoanAndInterests`,
+        () =>
+          tx.loan.findUnique({
+            where: { id: loanId },
             select: {
               id: true,
-              periodStartDate: true,
-              periodEndDate: true,
-              interestAmount: true,
-              interestPending: true,
+              status: true,
+              type: true,
+              interests: {
+                orderBy: { periodStartDate: 'asc' },
+                select: {
+                  id: true,
+                  periodStartDate: true,
+                  periodEndDate: true,
+                  interestAmount: true,
+                  interestPending: true,
+                },
+              },
             },
-          },
-        },
-      });
+          }),
+      );
 
       if (!loan) {
         throw new Error('Loan not found');
@@ -430,24 +493,40 @@ export class PenaltyCalculationService {
     return this.diffDays(dueDate, today);
   }
 
-  private async getLatestCoveredDateForInstallment(
+  private async getLatestCoveredDatesForInstallments(
     tx: Prisma.TransactionClient,
-    installmentId: string,
-  ): Promise<Date | null> {
-    const latestPenalty = await tx.loanPenalty.findFirst({
+    installmentIds: string[],
+  ): Promise<Map<string, Date>> {
+    if (installmentIds.length === 0) {
+      return new Map();
+    }
+
+    const penalties = await tx.loanPenalty.findMany({
       where: {
-        installmentId,
+        installmentId: { in: installmentIds },
         periodEndDate: { not: null },
       },
-      orderBy: {
-        periodEndDate: 'desc',
-      },
+      orderBy: [
+        { installmentId: 'asc' },
+        { periodEndDate: 'desc' },
+      ],
       select: {
+        installmentId: true,
         periodEndDate: true,
       },
     });
 
-    return latestPenalty?.periodEndDate ?? null;
+    const latestCoveredDates = new Map<string, Date>();
+
+    for (const penalty of penalties) {
+      if (!penalty.installmentId || latestCoveredDates.has(penalty.installmentId)) {
+        continue;
+      }
+
+      latestCoveredDates.set(penalty.installmentId, penalty.periodEndDate as Date);
+    }
+
+    return latestCoveredDates;
   }
 
   private async getLatestCoveredDaysForMonthlyInterestPeriod(

@@ -1,12 +1,15 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { LoanStatus } from '@prisma/client';
 import { LoansService } from '../loans/loans.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
+import { measureAsync } from '../common/perf/perf-logger';
 
 @Injectable()
 export class ClientsService {
+  private readonly logger = new Logger(ClientsService.name);
+
   constructor(
     private prisma: PrismaService,
     private loansService: LoansService,
@@ -132,96 +135,100 @@ export class ClientsService {
     const asOfKey = this.toDateKey(asOfDate);
     const normalizedSearch = filters.search?.trim() ?? '';
 
-    const clients = await this.prisma.client.findMany({
-      where: {
-        isActive: true,
-        ...(filters.lenderId && { lenderId: filters.lenderId }),
-        ...(normalizedSearch && {
-          fullName: {
-            contains: normalizedSearch,
-            mode: 'insensitive',
-          },
-        }),
-      },
-      select: {
-        id: true,
-        lenderId: true,
-        fullName: true,
-        documentNumber: true,
-        phone: true,
-        loans: {
-          where: {
-            status: LoanStatus.ACTIVE,
-          },
-          select: {
-            id: true,
+    const clients = await measureAsync(this.logger, 'clients.getPortfolio.listClients', () =>
+      this.prisma.client.findMany({
+        where: {
+          isActive: true,
+          ...(filters.lenderId && { lenderId: filters.lenderId }),
+          ...(normalizedSearch && {
+            fullName: {
+              contains: normalizedSearch,
+              mode: 'insensitive',
+            },
+          }),
+        },
+        select: {
+          id: true,
+          lenderId: true,
+          fullName: true,
+          documentNumber: true,
+          phone: true,
+          loans: {
+            where: {
+              status: LoanStatus.ACTIVE,
+            },
+            select: {
+              id: true,
+            },
           },
         },
-      },
-      orderBy: { fullName: 'asc' },
-    });
+        orderBy: { fullName: 'asc' },
+      }),
+    );
 
     const items = [];
 
-    for (const client of clients) {
-      if (client.loans.length === 0) {
-        continue;
+    await measureAsync(this.logger, `clients.getPortfolio.snapshots x${clients.length}`, async () => {
+      for (const client of clients) {
+        if (client.loans.length === 0) {
+          continue;
+        }
+
+        const activeLoans = await Promise.all(
+          client.loans.map((loan) => this.loansService.getDebtBreakdown(loan.id, asOfKey)),
+        );
+
+        const activeLoansCount = activeLoans.length;
+        const overdueLoansCount = activeLoans.filter((loan) => loan.overdue).length;
+        const totalCollectibleToday = this.normalizeMoney(
+          activeLoans.reduce((sum, loan) => sum + loan.totalCollectibleToday, 0),
+        );
+        const outstandingBalance = this.normalizeMoney(
+          activeLoans.reduce((sum, loan) => sum + loan.outstandingBalance, 0),
+        );
+        const penaltyPending = this.normalizeMoney(
+          activeLoans.reduce((sum, loan) => sum + loan.penalty.pending, 0),
+        );
+        const dueTodayAmount = this.normalizeMoney(
+          activeLoans.reduce((sum, loan) => sum + loan.dueTodayAmount, 0),
+        );
+        const overdueAmount = this.normalizeMoney(
+          activeLoans.reduce((sum, loan) => sum + loan.overdueAmount, 0),
+        );
+        const oldestDueDate =
+          activeLoans
+            .map((loan) => loan.oldestDueDate)
+            .filter((value): value is Date => Boolean(value))
+            .sort()[0] ?? null;
+        const daysLate = oldestDueDate
+          ? this.diffDaysUtc(oldestDueDate, asOfDate)
+          : null;
+        const operationalStatus =
+          overdueLoansCount > 0
+            ? 'OVERDUE'
+            : dueTodayAmount > 0
+              ? 'DUE_TODAY'
+              : 'CURRENT';
+
+        items.push({
+          clientId: client.id,
+          lenderId: client.lenderId,
+          fullName: client.fullName,
+          documentNumber: client.documentNumber,
+          phone: client.phone,
+          activeLoansCount,
+          overdueLoansCount,
+          totalCollectibleToday,
+          outstandingBalance,
+          penaltyPending,
+          dueTodayAmount,
+          overdueAmount,
+          oldestDueDate,
+          daysLate,
+          operationalStatus,
+        });
       }
-
-      const activeLoans = await Promise.all(
-        client.loans.map((loan) => this.loansService.getDebtBreakdown(loan.id, asOfKey)),
-      );
-
-      const activeLoansCount = activeLoans.length;
-      const overdueLoansCount = activeLoans.filter((loan) => loan.overdue).length;
-      const totalCollectibleToday = this.normalizeMoney(
-        activeLoans.reduce((sum, loan) => sum + loan.totalCollectibleToday, 0),
-      );
-      const outstandingBalance = this.normalizeMoney(
-        activeLoans.reduce((sum, loan) => sum + loan.outstandingBalance, 0),
-      );
-      const penaltyPending = this.normalizeMoney(
-        activeLoans.reduce((sum, loan) => sum + loan.penalty.pending, 0),
-      );
-      const dueTodayAmount = this.normalizeMoney(
-        activeLoans.reduce((sum, loan) => sum + loan.dueTodayAmount, 0),
-      );
-      const overdueAmount = this.normalizeMoney(
-        activeLoans.reduce((sum, loan) => sum + loan.overdueAmount, 0),
-      );
-      const oldestDueDate =
-        activeLoans
-          .map((loan) => loan.oldestDueDate)
-          .filter((value): value is Date => Boolean(value))
-          .sort()[0] ?? null;
-      const daysLate = oldestDueDate
-        ? this.diffDaysUtc(oldestDueDate, asOfDate)
-        : null;
-      const operationalStatus =
-        overdueLoansCount > 0
-          ? 'OVERDUE'
-          : dueTodayAmount > 0
-            ? 'DUE_TODAY'
-            : 'CURRENT';
-
-      items.push({
-        clientId: client.id,
-        lenderId: client.lenderId,
-        fullName: client.fullName,
-        documentNumber: client.documentNumber,
-        phone: client.phone,
-        activeLoansCount,
-        overdueLoansCount,
-        totalCollectibleToday,
-        outstandingBalance,
-        penaltyPending,
-        dueTodayAmount,
-        overdueAmount,
-        oldestDueDate,
-        daysLate,
-        operationalStatus,
-      });
-    }
+    });
 
     items.sort((left, right) => {
       const leftRank = this.getClientOperationalRank(left.operationalStatus);
@@ -258,9 +265,10 @@ export class ClientsService {
     const asOfDate = this.parseDateOnlyOrNow(asOf);
     const asOfKey = this.toDateKey(asOfDate);
 
-    const client = await this.prisma.client.findUnique({
-      where: { id },
-      select: {
+    const client = await measureAsync(this.logger, 'clients.getClientDebt.loadClient', () =>
+      this.prisma.client.findUnique({
+        where: { id },
+        select: {
         id: true,
         lenderId: true,
         fullName: true,
@@ -327,8 +335,9 @@ export class ClientsService {
             },
           },
         },
-      },
-    });
+        },
+      }),
+    );
 
     if (!client) {
       throw new NotFoundException(`Client with ID ${id} not found`);
@@ -336,8 +345,13 @@ export class ClientsService {
 
     const activeLoanRecords = client.loans.filter((loan) => loan.status === LoanStatus.ACTIVE);
     const inactiveLoanRecords = client.loans.filter((loan) => loan.status !== LoanStatus.ACTIVE);
-    const activeLoans = await Promise.all(
-      activeLoanRecords.map((loan) => this.loansService.getDebtBreakdown(loan.id, asOfKey)),
+    const activeLoans = await measureAsync(
+      this.logger,
+      `clients.getClientDebt.activeLoanSnapshots x${activeLoanRecords.length}`,
+      () =>
+        Promise.all(
+          activeLoanRecords.map((loan) => this.loansService.getDebtBreakdown(loan.id, asOfKey)),
+        ),
     );
 
     const activeLoanItems = activeLoans.map((loan) => ({

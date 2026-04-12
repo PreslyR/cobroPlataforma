@@ -111,6 +111,7 @@ model Client {
   loans    Loan[]
   payments Payment[]
 
+  @@index([lenderId, isActive])
   @@map("clients")
 }
 
@@ -142,6 +143,9 @@ model Loan {
   payments      Payment[]
   installments  Installment[]
 
+  @@index([lenderId, status])
+  @@index([lenderId, status, type])
+  @@index([clientId, status])
   @@map("loans")
 }
 
@@ -160,6 +164,9 @@ model LoanInterest {
   // Relaciones
   loan Loan @relation(fields: [loanId], references: [id])
 
+  @@index([loanId, periodStartDate])
+  @@index([loanId, periodEndDate])
+  @@index([loanId, periodStartDate, interestPaid])
   @@map("loan_interests")
 }
 
@@ -180,6 +187,10 @@ model LoanPenalty {
   loan        Loan         @relation(fields: [loanId], references: [id])
   installment Installment? @relation(fields: [installmentId], references: [id])
 
+  @@index([loanId, wasCharged, periodEndDate])
+  @@index([loanId, installmentId, wasCharged, periodEndDate])
+  @@index([loanId, periodStartDate, periodEndDate])
+  @@index([installmentId, periodEndDate])
   @@map("loan_penalties")
 }
 
@@ -203,6 +214,9 @@ model Payment {
   loan   Loan   @relation(fields: [loanId], references: [id])
   client Client @relation(fields: [clientId], references: [id])
 
+  @@index([loanId, paymentDate])
+  @@index([clientId, paymentDate])
+  @@index([paymentDate])
   @@map("payments")
 }
 
@@ -220,5 +234,7 @@ model Installment {
   loan      Loan          @relation(fields: [loanId], references: [id])
   penalties LoanPenalty[]
 
+  @@index([loanId, installmentNumber])
+  @@index([loanId, status, dueDate])
   @@map("installments")
 }

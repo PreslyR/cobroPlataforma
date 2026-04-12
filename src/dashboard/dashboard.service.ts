@@ -1,14 +1,15 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { LoansService } from '../loans/loans.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { ReportsService } from '../reports/reports.service';
+import { measureAsync } from '../common/perf/perf-logger';
 
 @Injectable()
 export class DashboardService {
+  private readonly logger = new Logger(DashboardService.name);
+
   constructor(
     private prisma: PrismaService,
     private loansService: LoansService,
-    private reportsService: ReportsService,
   ) {}
 
   async getToday(date?: string, lenderId?: string) {
@@ -16,52 +17,73 @@ export class DashboardService {
     const monthStartDate = new Date(
       Date.UTC(asOfDate.getUTCFullYear(), asOfDate.getUTCMonth(), 1),
     );
-    const dateKey = this.toDateKey(asOfDate);
-    const monthStartKey = this.toDateKey(monthStartDate);
     const nextDate = this.addDaysUtc(asOfDate, 1);
 
-    const [
-      lender,
-      dueToday,
-      overdue,
-      portfolio,
-      monthInterestIncome,
-      todayCollections,
-    ] =
+    const [lender, activeLoanSnapshotsResult, monthInterestIncome, todayCollections] =
       await Promise.all([
-        lenderId
-          ? this.prisma.lender.findUnique({
-              where: { id: lenderId },
-              select: { id: true, name: true },
-            })
-          : Promise.resolve(null),
-        this.loansService.getDueToday(dateKey, lenderId),
-        this.loansService.getOverdue(dateKey, lenderId),
-        this.reportsService.getPortfolioSummary(dateKey, lenderId),
-        this.reportsService.getInterestIncome(monthStartKey, dateKey, lenderId),
-        this.prisma.payment.aggregate({
-          where: {
-            paymentDate: {
-              gte: asOfDate,
-              lt: nextDate,
-            },
-            ...(lenderId && {
-              loan: {
-                lenderId,
+        measureAsync(this.logger, 'dashboard.lenderLookup', () =>
+          lenderId
+            ? this.prisma.lender.findUnique({
+                where: { id: lenderId },
+                select: { id: true, name: true },
+              })
+            : Promise.resolve(null),
+        ),
+        measureAsync(this.logger, 'dashboard.activeLoanSnapshots', () =>
+          this.loansService.getActiveLoanSnapshots({
+            asOf: asOfDate,
+            lenderId,
+            logLabel: 'dashboard.activeLoans',
+          }),
+        ),
+        measureAsync(this.logger, 'dashboard.monthInterestIncome', () =>
+          this.prisma.payment.aggregate({
+            where: {
+              paymentDate: {
+                gte: monthStartDate,
+                lt: nextDate,
               },
-            }),
-          },
-          _sum: {
-            totalAmount: true,
-            appliedToInterest: true,
-            appliedToPenalty: true,
-            appliedToPrincipal: true,
-          },
-          _count: {
-            id: true,
-          },
-        }),
+              ...(lenderId && {
+                loan: {
+                  lenderId,
+                },
+              }),
+            },
+            _sum: {
+              totalAmount: true,
+              appliedToInterest: true,
+            },
+          }),
+        ),
+        measureAsync(this.logger, 'dashboard.todayCollections', () =>
+          this.prisma.payment.aggregate({
+            where: {
+              paymentDate: {
+                gte: asOfDate,
+                lt: nextDate,
+              },
+              ...(lenderId && {
+                loan: {
+                  lenderId,
+                },
+              }),
+            },
+            _sum: {
+              totalAmount: true,
+              appliedToInterest: true,
+              appliedToPenalty: true,
+              appliedToPrincipal: true,
+            },
+            _count: {
+              id: true,
+            },
+          }),
+        ),
       ]);
+
+    const { dueToday, overdue, portfolio } = this.buildDashboardSections(
+      activeLoanSnapshotsResult.snapshots,
+    );
 
     return {
       date: asOfDate,
@@ -77,8 +99,8 @@ export class DashboardService {
         outstandingBalance: portfolio.totals.outstandingBalance,
         interestPending: portfolio.totals.interestPending,
         penaltyPending: portfolio.totals.penaltyPending,
-        monthInterestIncome: monthInterestIncome.totalInterestIncome,
-        monthCollectedAmount: monthInterestIncome.totalCollectedAmount,
+        monthInterestIncome: monthInterestIncome._sum.appliedToInterest ?? 0,
+        monthCollectedAmount: monthInterestIncome._sum.totalAmount ?? 0,
         todayPaymentsCount: todayCollections._count.id,
         todayCollectedAmount: todayCollections._sum.totalAmount ?? 0,
         todayInterestCollected: todayCollections._sum.appliedToInterest ?? 0,
@@ -88,6 +110,94 @@ export class DashboardService {
       sections: {
         dueToday: dueToday.items,
         overdue: overdue.items,
+      },
+    };
+  }
+
+  private buildDashboardSections(
+    snapshots: Array<Awaited<ReturnType<LoansService['getActiveLoanSnapshots']>>['snapshots'][number]>,
+  ) {
+    const dueTodayItems = [];
+    const overdueItems = [];
+
+    let principalPlaced = 0;
+    let capitalPending = 0;
+    let outstandingBalance = 0;
+    let interestPending = 0;
+    let penaltyPending = 0;
+    let dueTodayAmount = 0;
+    let overdueAmount = 0;
+    let totalCollectibleToday = 0;
+    let dueTodayLoans = 0;
+    let overdueLoans = 0;
+
+    for (const snapshot of snapshots) {
+      principalPlaced += snapshot.loan.principalAmount;
+      capitalPending += snapshot.loan.currentPrincipal;
+      outstandingBalance += snapshot.outstandingBalance;
+      interestPending += snapshot.interest.totalPending;
+      penaltyPending += snapshot.penalty.pending;
+      dueTodayAmount += snapshot.dueTodayAmount;
+      overdueAmount += snapshot.overdueAmount;
+      totalCollectibleToday += snapshot.totalCollectibleToday;
+
+      if (snapshot.dueToday) {
+        dueTodayLoans++;
+        dueTodayItems.push({
+          loanId: snapshot.loan.id,
+          lenderId: snapshot.loan.lenderId,
+          clientId: snapshot.loan.clientId,
+          clientName: snapshot.loan.clientName,
+          type: snapshot.loan.type,
+          dueTodayAmount: snapshot.dueTodayAmount,
+          overdueAmount: snapshot.overdueAmount,
+          penaltyPending: snapshot.penalty.pending,
+          totalCollectibleToday: snapshot.totalCollectibleToday,
+          outstandingBalance: snapshot.outstandingBalance,
+        });
+      }
+
+      if (snapshot.overdue) {
+        overdueLoans++;
+        overdueItems.push({
+          loanId: snapshot.loan.id,
+          lenderId: snapshot.loan.lenderId,
+          clientId: snapshot.loan.clientId,
+          clientName: snapshot.loan.clientName,
+          type: snapshot.loan.type,
+          overdueAmount: snapshot.overdueAmount,
+          penaltyPending: snapshot.penalty.pending,
+          totalCollectibleToday: snapshot.totalCollectibleToday,
+          oldestDueDate: snapshot.oldestDueDate,
+          daysLate: snapshot.daysLate,
+        });
+      }
+    }
+
+    return {
+      dueToday: {
+        count: dueTodayItems.length,
+        items: dueTodayItems,
+      },
+      overdue: {
+        count: overdueItems.length,
+        items: overdueItems,
+      },
+      portfolio: {
+        totals: {
+          activeLoans: snapshots.length,
+          dueTodayLoans,
+          overdueLoans,
+          principalPlaced,
+          capitalPending,
+          outstandingBalance,
+          interestPending,
+          penaltyPending,
+          pendingTotal: capitalPending + interestPending + penaltyPending,
+          dueTodayAmount,
+          overdueAmount,
+          totalCollectibleToday,
+        },
       },
     };
   }
@@ -138,9 +248,5 @@ export class DashboardService {
     const today = this.toUtcDateOnly(new Date());
 
     return normalizedDate > today ? today : normalizedDate;
-  }
-
-  private toDateKey(date: Date): string {
-    return date.toISOString().split('T')[0];
   }
 }
