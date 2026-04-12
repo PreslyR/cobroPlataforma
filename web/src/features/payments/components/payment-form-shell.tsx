@@ -46,6 +46,14 @@ function sanitizeIntegerInput(value: string) {
   return value.replace(/[^\d]/g, "");
 }
 
+function formatMoneyInput(value: string) {
+  if (!value) {
+    return "";
+  }
+
+  return formatCurrency(Number(value));
+}
+
 function toDateInputValue(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -359,8 +367,8 @@ export function PaymentFormShell({
                     className={`surface-input ${styles.amountInput}`}
                     type="text"
                     inputMode="numeric"
-                    placeholder="0"
-                    value={amount}
+                    placeholder="$ 0"
+                    value={formatMoneyInput(amount)}
                     onChange={(event) =>
                       setAmount(sanitizeIntegerInput(event.target.value))
                     }

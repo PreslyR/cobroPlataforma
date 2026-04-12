@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { CreateLoanFormShell } from "@/features/loans/components/create-loan-form-shell";
-import { getActiveClients } from "@/features/loans/lib/api";
 import styles from "./new-loan.module.css";
 
 type SearchParams = Promise<{
@@ -67,36 +66,10 @@ export default async function NewLoanPage({
     );
   }
 
-  const clientsResult = await getActiveClients(lenderId);
-
-  if (!clientsResult.ok) {
-    return (
-      <main className={`page-shell ${styles.pageShell}`}>
-        <section className="panel gap-4">
-          <p className="eyebrow text-[var(--danger)]">Clientes no disponibles</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">
-            No pude cargar los clientes activos.
-          </h1>
-          <p className="text-sm leading-6 text-[var(--muted)]">
-            Verifica que el backend este corriendo en{" "}
-            <code>{clientsResult.meta?.baseUrl ?? "http://localhost:3000/api"}</code>.
-          </p>
-          <div className="rounded-2xl border border-[var(--danger-soft)] bg-[var(--danger-soft)]/60 p-4 text-sm text-[var(--foreground)]">
-            {clientsResult.error}
-          </div>
-          <Link className="inline-link" href={dashboardHref}>
-            Volver al dashboard
-          </Link>
-        </section>
-      </main>
-    );
-  }
-
   return (
     <CreateLoanFormShell
       lenderId={lenderId}
       initialDate={date}
-      clients={clientsResult.data}
       dashboardHref={dashboardHref}
     />
   );

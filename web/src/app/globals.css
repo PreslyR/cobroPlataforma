@@ -30,11 +30,16 @@
 }
 
 html {
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
   min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
   background: var(--background);
   color: var(--foreground);
   font-family: "Aptos", "Segoe UI", "Helvetica Neue", sans-serif;
@@ -270,10 +275,12 @@ input {
 
 .app-shell {
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .app-shell-content {
   width: 100%;
+  overflow-x: clip;
   padding-bottom: 7.8rem;
 }
 

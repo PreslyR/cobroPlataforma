@@ -1085,15 +1085,20 @@ export class LoansService {
       return;
     }
 
+    const normalizedAsOfDate = this.toUtcDateOnly(asOfDate);
+    const today = this.toUtcDateOnly(new Date());
+    const preserveFutureState = normalizedAsOfDate < today;
+
     if (loan.type === LoanType.MONTHLY_INTEREST) {
       await this.interestService.ensureMonthlyInterestScheduleUpTo(
         id,
-        asOfDate,
+        normalizedAsOfDate,
       );
 
       await this.penaltyService.generateMonthlyInterestPenaltiesIncremental(
         id,
-        asOfDate,
+        normalizedAsOfDate,
+        { preserveFutureState },
       );
 
       return;
@@ -1102,7 +1107,8 @@ export class LoansService {
     if (loan.type === LoanType.FIXED_INSTALLMENTS) {
       await this.penaltyService.generateFixedInstallmentPenaltiesIncremental(
         id,
-        asOfDate,
+        normalizedAsOfDate,
+        { preserveFutureState },
       );
 
       await this.syncFixedInstallmentCurrentPrincipal(id);
@@ -1272,3 +1278,4 @@ export class LoansService {
     return normalizedStart <= normalizedDate && normalizedDate <= normalizedEnd;
   }
 }
+

@@ -21,6 +21,7 @@ const API_BASE_URL =
   process.env.API_BASE_URL ??
   process.env.NEXT_PUBLIC_API_BASE_URL ??
   "http://localhost:3000/api";
+const READ_REVALIDATE_SECONDS = 5;
 
 export async function getDashboardToday({
   date,
@@ -35,7 +36,7 @@ export async function getDashboardToday({
 
   try {
     const response = await fetch(url, {
-      cache: "no-store",
+      next: { revalidate: READ_REVALIDATE_SECONDS },
     });
 
     if (!response.ok) {

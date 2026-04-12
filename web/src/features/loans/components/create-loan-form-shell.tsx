@@ -1,5 +1,6 @@
-﻿"use client";
+"use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
   useEffect,
@@ -9,7 +10,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from "react";
-import { createLoan } from "@/features/loans/lib/api";
+import { createLoan, getActiveClients } from "@/features/loans/lib/api";
 import { ActiveClientOption, CreateLoanResponse } from "@/features/loans/types";
 import { ContextHeader } from "@/shared/components/context-header";
 import {
@@ -20,20 +21,22 @@ import {
 } from "@/shared/lib/format";
 import styles from "./create-loan-form-shell.module.css";
 
+const ClientPickerDialog = dynamic(
+  () => import("./client-picker-dialog").then((mod) => mod.ClientPickerDialog),
+  { ssr: false },
+);
+
 type CreateLoanFormShellProps = {
   lenderId: string;
   initialDate: string;
-  clients: ActiveClientOption[];
   dashboardHref: string;
 };
 
 const fixedFrequencyOptions = [
-  "DAILY",
   "WEEKLY",
   "BIWEEKLY",
   "MONTHLY",
 ] as const;
-
 function sanitizeIntegerInput(value: string) {
   return value.replace(/[^\d]/g, "");
 }
@@ -47,6 +50,14 @@ function sanitizeDecimalInput(value: string) {
   }
 
   return `${integerPart}.${decimalParts.join("")}`;
+}
+
+function formatMoneyInput(value: string) {
+  if (!value) {
+    return "";
+  }
+
+  return formatCurrency(Number(value));
 }
 
 function preventImplicitSubmit(event: KeyboardEvent<HTMLFormElement>) {
@@ -75,7 +86,6 @@ function toDateInputValue(date: Date) {
 export function CreateLoanFormShell({
   lenderId,
   initialDate,
-  clients,
   dashboardHref,
 }: CreateLoanFormShellProps) {
   const maxStartDate = useMemo(() => toDateInputValue(new Date()), []);
@@ -86,16 +96,15 @@ export function CreateLoanFormShell({
   const [clientSearch, setClientSearch] = useState("");
   const [isClientPickerOpen, setIsClientPickerOpen] = useState(false);
   const [principalAmount, setPrincipalAmount] = useState("");
-  const [monthlyInterestRate, setMonthlyInterestRate] = useState("0.15");
+  const [monthlyInterestRate, setMonthlyInterestRate] = useState("");
   const [installmentAmount, setInstallmentAmount] = useState("");
   const [totalInstallments, setTotalInstallments] = useState("");
-  const [paymentFrequency, setPaymentFrequency] = useState<
-    "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY"
-  >("WEEKLY");
+  const [paymentFrequency, setPaymentFrequency] = useState<(typeof fixedFrequencyOptions)[number]>("WEEKLY");
   const [earlySettlementInterestMode, setEarlySettlementInterestMode] = useState<
     "FULL_MONTH" | "PRORATED_BY_DAYS"
   >("FULL_MONTH");
   const [startDate, setStartDate] = useState(initialDate);
+  const [showAdvancedMonthlyOptions, setShowAdvancedMonthlyOptions] = useState(false);
   const [expectedEndDate, setExpectedEndDate] = useState("");
   const [submitState, setSubmitState] = useState<
     | { status: "idle" }
@@ -103,27 +112,34 @@ export function CreateLoanFormShell({
     | { status: "error"; message: string }
     | { status: "success"; data: CreateLoanResponse }
   >({ status: "idle" });
+  const [clientsState, setClientsState] = useState<
+    | { status: "idle"; data: ActiveClientOption[] }
+    | { status: "loading"; data: ActiveClientOption[] }
+    | { status: "ready"; data: ActiveClientOption[] }
+    | { status: "error"; data: ActiveClientOption[]; message: string }
+  >({ status: "idle", data: [] });
   const submitLockRef = useRef(false);
 
+  const availableClients = clientsState.data;
   const selectedClient = useMemo(
-    () => clients.find((client) => client.id === clientId) ?? null,
-    [clients, clientId],
+    () => availableClients.find((client) => client.id === clientId) ?? null,
+    [availableClients, clientId],
   );
   const filteredClients = useMemo(() => {
     const query = clientSearch.trim().toLowerCase();
 
     if (!query) {
-      return clients;
+      return availableClients;
     }
 
-    return clients.filter((client) => {
+    return availableClients.filter((client) => {
       return (
         client.fullName.toLowerCase().includes(query) ||
         client.documentNumber.toLowerCase().includes(query) ||
         (client.phone ?? "").toLowerCase().includes(query)
       );
     });
-  }, [clients, clientSearch]);
+  }, [availableClients, clientSearch]);
 
   const previewTypeLabel = formatLoanType(loanType);
   const previewPrincipal = Number(principalAmount || 0);
@@ -131,7 +147,6 @@ export function CreateLoanFormShell({
   const isSubmitDisabled =
     submitState.status === "submitting" ||
     submitState.status === "success" ||
-    clients.length === 0 ||
     !clientId;
 
   useEffect(() => {
@@ -146,6 +161,30 @@ export function CreateLoanFormShell({
       document.body.style.overflow = previousOverflow;
     };
   }, [isClientPickerOpen]);
+  async function loadClients(force = false) {
+    if (!force && (clientsState.status === "loading" || clientsState.status === "ready")) {
+      return;
+    }
+
+    setClientsState((current) => ({ status: "loading", data: current.data }));
+    const result = await getActiveClients(lenderId);
+
+    if (!result.ok) {
+      setClientsState({
+        status: "error",
+        data: [],
+        message: result.error,
+      });
+      return;
+    }
+
+    setClientsState({ status: "ready", data: result.data });
+  }
+
+  async function handleOpenClientPicker() {
+    setIsClientPickerOpen(true);
+    await loadClients();
+  }
 
   useEffect(() => {
     if (!isClientPickerOpen) {
@@ -166,6 +205,7 @@ export function CreateLoanFormShell({
       );
     };
   }, [isClientPickerOpen]);
+
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -211,10 +251,10 @@ export function CreateLoanFormShell({
     } else {
       const rate = Number(monthlyInterestRate);
 
-      if (!Number.isFinite(rate) || rate < 0) {
+      if (!Number.isFinite(rate) || rate <= 0) {
         setSubmitState({
           status: "error",
-          message: "Ingresa una tasa mensual valida.",
+          message: "Ingresa una tasa mensual mayor que 0.",
         });
         return;
       }
@@ -280,12 +320,12 @@ export function CreateLoanFormShell({
         <button
           className={styles.clientCardButton}
           type="button"
-          onClick={() => setIsClientPickerOpen(true)}
+          onClick={handleOpenClientPicker}
         >
           <div className={styles.clientCardHeader}>
             <p className="eyebrow">Cliente</p>
             <span className={styles.clientCardChevron} aria-hidden="true">
-              ›
+              {">"}
             </span>
           </div>
           {selectedClient ? (
@@ -309,12 +349,6 @@ export function CreateLoanFormShell({
           <p className="eyebrow">Formulario</p>
           <h2 className="section-title">Datos base</h2>
         </div>
-
-        {clients.length === 0 ? (
-          <div className={styles.emptyState}>
-            No hay clientes activos para este prestamista. Primero crea un cliente.
-          </div>
-        ) : (
           <form
             className={styles.formContent}
             onSubmit={handleSubmit}
@@ -351,8 +385,8 @@ export function CreateLoanFormShell({
                   className={`surface-input ${styles.amountInput}`}
                   type="text"
                   inputMode="numeric"
-                  placeholder="0"
-                  value={principalAmount}
+                  placeholder="$ 0"
+                  value={formatMoneyInput(principalAmount)}
                   onChange={(event) =>
                     setPrincipalAmount(sanitizeIntegerInput(event.target.value))
                   }
@@ -398,7 +432,8 @@ export function CreateLoanFormShell({
                       className="surface-input"
                       type="text"
                       inputMode="numeric"
-                      value={installmentAmount}
+                      placeholder="$ 0"
+                      value={formatMoneyInput(installmentAmount)}
                       onChange={(event) =>
                         setInstallmentAmount(
                           sanitizeIntegerInput(event.target.value),
@@ -456,6 +491,7 @@ export function CreateLoanFormShell({
                     className="surface-input"
                     type="text"
                     inputMode="decimal"
+                    placeholder="0.2 (20%)"
                     value={monthlyInterestRate}
                     onChange={(event) =>
                       setMonthlyInterestRate(
@@ -466,40 +502,51 @@ export function CreateLoanFormShell({
                   />
                 </label>
 
-                <div className={styles.optionBlock}>
-                  <p className="surface-label">Liquidacion anticipada</p>
-                  <div className={styles.chipsRow}>
-                    <button
-                      className={`filter-chip ${
-                        earlySettlementInterestMode === "FULL_MONTH"
-                          ? "filter-chip-active"
-                          : ""
-                      }`}
-                      type="button"
-                      onClick={() => setEarlySettlementInterestMode("FULL_MONTH")}
-                    >
-                      Mes completo
-                    </button>
-                    <button
-                      className={`filter-chip ${
-                        earlySettlementInterestMode === "PRORATED_BY_DAYS"
-                          ? "filter-chip-active"
-                          : ""
-                      }`}
-                      type="button"
-                      onClick={() =>
-                        setEarlySettlementInterestMode("PRORATED_BY_DAYS")
-                      }
-                    >
-                      Prorrateado
-                    </button>
-                  </div>
-                </div>
+                <button
+                  className={styles.advancedToggle}
+                  type="button"
+                  onClick={() => setShowAdvancedMonthlyOptions((value) => !value)}
+                  aria-expanded={showAdvancedMonthlyOptions}
+                >
+                  {showAdvancedMonthlyOptions
+                    ? "Ocultar opciones avanzadas"
+                    : "Opciones avanzadas"}
+                </button>
 
-                <p className={styles.helperCopy}>
-                  La frecuencia para interes mensual queda fija en{" "}
-                  {formatPaymentFrequency("MONTHLY")}.
-                </p>
+                <p className={styles.helperCopy}>Por defecto se aplica Mes completo.</p>
+
+                {showAdvancedMonthlyOptions ? (
+                  <div className={styles.optionBlock}>
+                    <p className="surface-label">Liquidacion anticipada</p>
+                    <div className={styles.chipsRow}>
+                      <button
+                        className={`filter-chip ${
+                          earlySettlementInterestMode === "FULL_MONTH"
+                            ? "filter-chip-active"
+                            : ""
+                        }`}
+                        type="button"
+                        onClick={() => setEarlySettlementInterestMode("FULL_MONTH")}
+                      >
+                        Mes completo
+                      </button>
+                      <button
+                        className={`filter-chip ${
+                          earlySettlementInterestMode === "PRORATED_BY_DAYS"
+                            ? "filter-chip-active"
+                            : ""
+                        }`}
+                        type="button"
+                        onClick={() =>
+                          setEarlySettlementInterestMode("PRORATED_BY_DAYS")
+                        }
+                      >
+                        Prorrateado
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
               </div>
             )}
 
@@ -537,7 +584,7 @@ export function CreateLoanFormShell({
                   <>
                     <div className={styles.summaryCell}>
                       <p className={styles.summaryLabel}>Tasa mensual</p>
-                      <p className={styles.summaryValue}>{monthlyInterestRate}</p>
+                      <p className={styles.summaryValue}>{monthlyInterestRate || "-"}</p>
                     </div>
                     <div className={styles.summaryCell}>
                       <p className={styles.summaryLabel}>Liquidacion</p>
@@ -571,7 +618,6 @@ export function CreateLoanFormShell({
               </button>
             </div>
           </form>
-        )}
       </section>
 
       {submitState.status === "success" ? (
@@ -610,79 +656,21 @@ export function CreateLoanFormShell({
         </section>
       ) : null}
 
-      {isClientPickerOpen ? (
-        <div
-          className={styles.clientPickerOverlay}
-          role="presentation"
-          onClick={() => setIsClientPickerOpen(false)}
-        >
-          <div
-            className={styles.clientPickerCard}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="client-picker-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className={styles.clientPickerHeader}>
-              <div>
-                <p className="eyebrow">Clientes</p>
-                <h2 className="section-title" id="client-picker-title">
-                  Seleccionar cliente
-                </h2>
-              </div>
-              <button
-                className={styles.clientPickerClose}
-                type="button"
-                onClick={() => setIsClientPickerOpen(false)}
-                aria-label="Cerrar selector de clientes"
-              >
-                ×
-              </button>
-            </div>
-
-            <label className="surface-field">
-              <span className="surface-label">Buscar</span>
-              <input
-                className="surface-input"
-                type="text"
-                placeholder="Nombre, cedula o telefono"
-                value={clientSearch}
-                onChange={(event) => setClientSearch(event.target.value)}
-              />
-            </label>
-
-            <div className={styles.clientPickerList}>
-              {filteredClients.length > 0 ? (
-                filteredClients.map((client) => (
-                  <button
-                    key={client.id}
-                    className={`${styles.clientPickerItem} ${
-                      client.id === clientId ? styles.clientPickerItemActive : ""
-                    }`}
-                    type="button"
-                    onClick={() => handleClientSelect(client)}
-                  >
-                    <div className={styles.clientPickerItemCopy}>
-                      <p className={styles.clientPickerItemName}>{client.fullName}</p>
-                      <p className={styles.clientPickerItemMeta}>
-                        C.C. {client.documentNumber}
-                        {client.phone ? ` | ${client.phone}` : ""}
-                      </p>
-                    </div>
-                    <span className={styles.clientPickerItemChevron} aria-hidden="true">
-                      ›
-                    </span>
-                  </button>
-                ))
-              ) : (
-                <div className={styles.clientPickerEmpty}>
-                  No encontre clientes con esa busqueda.
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <ClientPickerDialog
+        isOpen={isClientPickerOpen}
+        clientId={clientId}
+        clientSearch={clientSearch}
+        clientsState={clientsState}
+        filteredClients={filteredClients}
+        availableClientsCount={availableClients.length}
+        onClose={() => setIsClientPickerOpen(false)}
+        onRetry={() => loadClients(true)}
+        onSearchChange={setClientSearch}
+        onSelect={handleClientSelect}
+      />
     </main>
   );
 }
+
+
+

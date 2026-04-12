@@ -169,3 +169,57 @@ describe("PenaltyCalculationService - monthly fixed installments", () => {
     expect(penalties).toHaveLength(1);
   });
 });
+
+describe("PenaltyCalculationService - read-safe historical queries", () => {
+  it("preserves future fixed-installment penalties during backdated reads", async () => {
+    const tx = {
+      $queryRaw: jest.fn(async () => []),
+      installment: {
+        findMany: jest.fn(async () => []),
+        updateMany: jest.fn(async () => ({ count: 0 })),
+        update: jest.fn(async () => ({ id: "inst-1", status: "LATE" })),
+      },
+      loanPenalty: {
+        deleteMany: jest.fn(async () => ({ count: 0 })),
+        findFirst: jest.fn(async () => null),
+        create: jest.fn(async ({ data }) => ({ id: "penalty-1", ...data })),
+      },
+      loan: {
+        findUnique: jest.fn(async () => ({
+          id: "loan-historical",
+          type: LoanType.FIXED_INSTALLMENTS,
+          installments: [
+            {
+              id: "inst-1",
+              dueDate: new Date("2026-04-04T00:00:00.000Z"),
+              amount: 30000,
+              status: "PENDING",
+            },
+          ],
+        })),
+      },
+    };
+
+    const prisma = {
+      $transaction: jest.fn(async (callback) => callback(tx)),
+    };
+
+    const service = new PenaltyCalculationService(prisma as never);
+    await service.generateFixedInstallmentPenaltiesIncremental(
+      "loan-historical",
+      new Date("2026-04-08T00:00:00.000Z"),
+      { preserveFutureState: true },
+    );
+
+    expect(tx.loanPenalty.deleteMany).not.toHaveBeenCalled();
+    expect(tx.installment.updateMany).not.toHaveBeenCalled();
+    expect(tx.loanPenalty.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        loanId: "loan-historical",
+        installmentId: "inst-1",
+        daysLate: 4,
+        penaltyAmount: 1000,
+      }),
+    });
+  });
+});

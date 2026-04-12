@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { PortfolioLoanItem } from "@/features/portfolio/types";
 import {
   formatCurrency,
@@ -101,10 +101,11 @@ export function PaymentLoanPickerItem({
           )}
           <span className={styles.footerId}>{item.loanId.slice(0, 8)}</span>
         </div>
-        <Link className={styles.footerCta} href={href}>
+        <Link className={styles.footerCta} href={href} prefetch={false}>
           Seleccionar
         </Link>
       </div>
     </article>
   );
 }
+

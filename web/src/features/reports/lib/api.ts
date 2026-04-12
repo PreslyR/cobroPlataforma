@@ -27,11 +27,12 @@ const API_BASE_URL =
   process.env.API_BASE_URL ??
   process.env.NEXT_PUBLIC_API_BASE_URL ??
   "http://localhost:3000/api";
+const READ_REVALIDATE_SECONDS = 10;
 
 async function fetchJson<T>(path: string): Promise<FetchResult<T>> {
   try {
     const response = await fetch(`${API_BASE_URL}${path}`, {
-      cache: "no-store",
+      next: { revalidate: READ_REVALIDATE_SECONDS },
     });
 
     if (!response.ok) {

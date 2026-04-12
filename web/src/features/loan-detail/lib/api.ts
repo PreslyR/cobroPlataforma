@@ -26,11 +26,12 @@ const API_BASE_URL =
   process.env.API_BASE_URL ??
   process.env.NEXT_PUBLIC_API_BASE_URL ??
   "http://localhost:3000/api";
+const READ_REVALIDATE_SECONDS = 5;
 
 async function fetchJson<T>(path: string): Promise<FetchResult<T>> {
   try {
     const response = await fetch(`${API_BASE_URL}${path}`, {
-      cache: "no-store",
+      next: { revalidate: READ_REVALIDATE_SECONDS },
     });
 
     if (!response.ok) {
@@ -73,7 +74,8 @@ export async function getLoanDetailPageData({
     payoffSearchParams.set("paymentDate", date);
   }
 
-  const [loanResult, debtBreakdownResult, summaryResult] = await Promise.all([
+  const [loanResult, debtBreakdownResult, summaryResult, payoffFullMonthResult] =
+    await Promise.all([
     fetchJson<LoanDetailRecord>(
       `/loans/${loanId}${
         searchParams.toString() ? `?${searchParams.toString()}` : ""
@@ -87,6 +89,11 @@ export async function getLoanDetailPageData({
     fetchJson<LoanSummaryResponse>(
       `/loans/${loanId}/summary${
         searchParams.toString() ? `?${searchParams.toString()}` : ""
+      }`,
+    ),
+    fetchJson<LoanPayoffPreviewResponse>(
+      `/loans/${loanId}/payoff-preview${
+        payoffSearchParams.toString() ? `?${payoffSearchParams.toString()}` : ""
       }`,
     ),
   ]);
@@ -110,12 +117,6 @@ export async function getLoanDetailPageData({
       meta: { baseUrl: API_BASE_URL },
     };
   }
-
-  const payoffFullMonthResult = await fetchJson<LoanPayoffPreviewResponse>(
-    `/loans/${loanId}/payoff-preview${
-      payoffSearchParams.toString() ? `?${payoffSearchParams.toString()}` : ""
-    }`,
-  );
 
   if (!payoffFullMonthResult.ok) {
     return {

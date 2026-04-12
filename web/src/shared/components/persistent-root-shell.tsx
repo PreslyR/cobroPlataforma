@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useLayoutEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { AppShell } from "@/shared/components/app-shell";
 
@@ -44,13 +44,26 @@ export function PersistentRootShell({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const documentElement = document.documentElement;
+    const previousScrollBehavior = documentElement.style.scrollBehavior;
+
+    documentElement.style.scrollBehavior = "auto";
     window.scrollTo(0, 0);
 
     const shellContent = document.querySelector(".app-shell-content");
     if (shellContent instanceof HTMLElement) {
       shellContent.scrollTo(0, 0);
     }
+
+    const restore = window.setTimeout(() => {
+      documentElement.style.scrollBehavior = previousScrollBehavior;
+    }, 0);
+
+    return () => {
+      window.clearTimeout(restore);
+      documentElement.style.scrollBehavior = previousScrollBehavior;
+    };
   }, [pathname]);
 
   if (!ROOT_PATHS.has(pathname)) {

@@ -57,7 +57,9 @@ export class PenaltyCalculationService {
   async generateFixedInstallmentPenaltiesIncremental(
     loanId: string,
     asOfDate: Date,
+    options: { preserveFutureState?: boolean } = {},
   ) {
+    const preserveFutureState = options.preserveFutureState ?? false;
     return this.prisma.$transaction(async (tx) => {
       await this.lockLoanRow(tx, loanId);
 
@@ -78,33 +80,35 @@ export class PenaltyCalculationService {
       // processing/simulating a backdated payment, those future penalties are
       // no longer valid. Drop only the uncharged fixed-installment penalties
       // beyond the requested cutoff, then regenerate up to the effective date.
-      await tx.loanPenalty.deleteMany({
-        where: {
-          loanId,
-          installmentId: { not: null },
-          wasCharged: false,
-          OR: [
-            { periodEndDate: { gt: asOf } },
-            ...(paidInstallmentIds.length > 0
-              ? [{ installmentId: { in: paidInstallmentIds } }]
-              : []),
-          ],
-        },
-      });
+      if (!preserveFutureState) {
+        await tx.loanPenalty.deleteMany({
+          where: {
+            loanId,
+            installmentId: { not: null },
+            wasCharged: false,
+            OR: [
+              { periodEndDate: { gt: asOf } },
+              ...(paidInstallmentIds.length > 0
+                ? [{ installmentId: { in: paidInstallmentIds } }]
+                : []),
+            ],
+          },
+        });
 
-      // If a future as-of date previously marked installments as LATE, restore
-      // any still-unpaid dues whose due date has not arrived yet for the
-      // effective cutoff we are processing now.
-      await tx.installment.updateMany({
-        where: {
-          loanId,
-          status: 'LATE',
-          dueDate: { gte: asOf },
-        },
-        data: {
-          status: 'PENDING',
-        },
-      });
+        // If a future as-of date previously marked installments as LATE, restore
+        // any still-unpaid dues whose due date has not arrived yet for the
+        // effective cutoff we are processing now.
+        await tx.installment.updateMany({
+          where: {
+            loanId,
+            status: 'LATE',
+            dueDate: { gte: asOf },
+          },
+          data: {
+            status: 'PENDING',
+          },
+        });
+      }
 
       const loan = await tx.loan.findUnique({
         where: { id: loanId },
@@ -201,19 +205,23 @@ export class PenaltyCalculationService {
   async generateMonthlyInterestPenaltiesIncremental(
     loanId: string,
     asOfDate: Date,
+    options: { preserveFutureState?: boolean } = {},
   ) {
+    const preserveFutureState = options.preserveFutureState ?? false;
     return this.prisma.$transaction(async (tx) => {
       await this.lockLoanRow(tx, loanId);
       const asOf = this.clampToToday(asOfDate);
 
-      await tx.loanPenalty.deleteMany({
-        where: {
-          loanId,
-          installmentId: null,
-          wasCharged: false,
-          periodEndDate: { gt: asOf },
-        },
-      });
+      if (!preserveFutureState) {
+        await tx.loanPenalty.deleteMany({
+          where: {
+            loanId,
+            installmentId: null,
+            wasCharged: false,
+            periodEndDate: { gt: asOf },
+          },
+        });
+      }
 
       const loan = await tx.loan.findUnique({
         where: { id: loanId },
@@ -499,3 +507,4 @@ export class PenaltyCalculationService {
     await tx.$queryRaw`SELECT id FROM "loans" WHERE id = ${loanId} FOR UPDATE`;
   }
 }
+
