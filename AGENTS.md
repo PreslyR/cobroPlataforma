@@ -1,4 +1,4 @@
-# AGENTS.md
+﻿# AGENTS.md
 
 ## Propósito del producto
 Construir y mantener una herramienta seria para gestión de préstamos.
@@ -6,6 +6,22 @@ El usuario principal es el prestamista. El sistema debe ayudarle a operar su neg
 
 Este proyecto NO es una plataforma educativa.
 Este proyecto NO está priorizando portal de clientes por ahora.
+
+## Fuente de verdad documental
+Para trabajar con criterio en este repo, usar esta separacion:
+- `AGENTS.md`: producto, prioridades, UX y criterio de decision
+- `ARCHITECTURE.md`: estructura tecnica, ownership de modulos y fronteras del sistema
+- `spec/README.md`: indice de la especificacion
+- `spec/contracts.md`: contratos de datos y expectativas de API
+- `spec/domain.md`: reglas de negocio
+- `spec/validation.md`: matriz de validacion y cobertura esperada
+
+Regla practica:
+- no mezclar arquitectura con dominio
+- no mezclar dominio con validacion
+- no cerrar cambios de negocio sin revisar la spec y los tests
+
+Si hay tension entre estos documentos, no improvisar: ajustar el codigo o actualizar la documentacion para que queden alineados.
 
 ## Usuario principal
 - Prestamista / cobrador / administrador del negocio
@@ -174,3 +190,4 @@ Ante dos opciones, preferir:
 - mobile-first sobre desktop-first
 - backend como fuente de verdad sobre cálculos locales
 - flujo del prestamista sobre features futuras para clientes
+

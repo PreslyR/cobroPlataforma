@@ -1,635 +1,343 @@
-# Arquitectura del Sistema de Préstamos
+﻿# Architecture
 
-## 📋 Índice
+## Purpose
+This repo is a mobile-first loan management system for a lender.
+The backend is the source of truth for all financial logic.
+The frontend presents operational views and never calculates debt locally.
 
-1. [Visión General](#visión-general)
-2. [Principios Arquitectónicos](#principios-arquitectónicos)
-3. [Capas de la Aplicación](#capas-de-la-aplicación)
-4. [Flujo de Datos](#flujo-de-datos)
-5. [Servicios de Cálculo](#servicios-de-cálculo)
-6. [Reglas de Negocio](#reglas-de-negocio)
+## Documentation Boundaries
+Architecture is not the same thing as business specification.
+This repo now treats them as separate sources.
 
----
+Use:
+- `ARCHITECTURE.md` for technical structure, module ownership, and dependency rules
+- `spec/contracts.md` for data semantics and API expectations
+- `spec/domain.md` for business rules
+- `spec/validation.md` for regression expectations
 
-## Visión General
+This separation is intentional.
+It prevents one large document from mixing technical boundaries, business behavior, and testing policy.
+## Current Architecture Style
+The project currently follows a modular monolith architecture:
 
-Este sistema implementa una arquitectura modular basada en NestJS siguiendo los principios SOLID y separación de responsabilidades.
+- Backend: NestJS + Prisma + PostgreSQL (now prepared for Supabase Postgres)
+- Frontend: Next.js app under `web/`
+- Deployment shape: separate frontend and backend services, same codebase/repo
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                      Cliente (API)                       │
-└───────────────────────┬─────────────────────────────────┘
-                        │
-                        ▼
-┌─────────────────────────────────────────────────────────┐
-│                    Controllers Layer                     │
-│  (Validación de entrada, Autorización, Serialización)   │
-└───────────────────────┬─────────────────────────────────┘
-                        │
-                        ▼
-┌─────────────────────────────────────────────────────────┐
-│                    Services Layer                        │
-│         (Lógica de negocio, Orquestación)               │
-└───────────────────────┬─────────────────────────────────┘
-                        │
-                        ▼
-┌─────────────────────────────────────────────────────────┐
-│              Calculation Services Layer                  │
-│   (Cálculos puros: intereses, mora, distribución)       │
-└───────────────────────┬─────────────────────────────────┘
-                        │
-                        ▼
-┌─────────────────────────────────────────────────────────┐
-│                 Prisma Service (ORM)                     │
-└───────────────────────┬─────────────────────────────────┘
-                        │
-                        ▼
-┌─────────────────────────────────────────────────────────┐
-│                 PostgreSQL Database                      │
-└─────────────────────────────────────────────────────────┘
-```
+This is not a hexagonal architecture, not DDD in the strict sense, and not a microservices system.
+It is a pragmatic modular monolith with domain-oriented Nest modules and a shared Prisma data layer.
 
----
+## Reality Check
+The repo does have an architecture.
+What it did not have was a short, explicit definition of module ownership and boundaries.
 
-## Principios Arquitectónicos
+Current status:
+- module boundaries exist by convention
+- service responsibilities exist and are mostly consistent
+- architectural rules were not enforced with tooling
+- some modules still read directly from Prisma instead of going through dedicated query/repository layers
 
-### 1. Separación Estricta de Conceptos
+That is acceptable for the current stage of the product, but it must be explicit.
 
-**Capital, Intereses y Mora NUNCA se mezclan**
+## High-Level System Layout
 
-```typescript
-// ❌ INCORRECTO
-loan.totalDebt = loan.principal + loan.interest + loan.penalty;
-
-// ✅ CORRECTO
-const summary = {
-  principal: loan.currentPrincipal,
-  interestPending: calculatePendingInterest(loan),
-  penaltyPending: calculatePendingPenalty(loan),
-};
+```text
+Client (Web / mobile browser)
+  -> Next.js frontend (`web/`)
+  -> NestJS HTTP API (`src/`)
+  -> Prisma ORM
+  -> PostgreSQL / Supabase Postgres
 ```
 
-### 2. Pagos como Eventos
+## Repository Layout
 
-Los pagos NO modifican directamente el capital. Se registran y se distribuyen.
+```text
+src/
+  app.module.ts
+  prisma/
+  lender/
+  users/
+  clients/
+  loans/
+  payments/
+  reports/
+  dashboard/
+  common/
 
-```typescript
-// El servicio de distribución decide cómo aplicar el pago
-const distribution = await paymentDistribution.processPayment(
-  loanId,
-  clientId,
-  amount,
-);
-
-// Resultado: { appliedToPenalty, appliedToInterest, appliedToPrincipal }
+web/
+  src/app/
+  src/features/
+  src/shared/
 ```
 
-### 3. Lógica en Backend
-
-Todo cálculo financiero ocurre en el servidor. El frontend solo presenta datos.
-
-### 4. Inmutabilidad de Registros Financieros
-
-Los registros de pagos, intereses y mora nunca se modifican, solo se marcan como aplicados.
-
-### 5. Multi-tenancy
-
-Cada prestamista (Lender) tiene sus datos aislados.
-
----
-
-## Capas de la Aplicación
-
-### 1. Controllers Layer
-
-**Responsabilidad**: Manejar HTTP, validar entrada, delegar a servicios.
-
-```typescript
-@Controller('payments')
-export class PaymentsController {
-  constructor(private readonly paymentsService: PaymentsService) {}
-
-  @Post()
-  create(@Body() createPaymentDto: CreatePaymentDto) {
-    // Solo delega, NO contiene lógica de negocio
-    return this.paymentsService.create(createPaymentDto);
-  }
-}
-```
-
-**Principios**:
-- Controllers delgados (thin controllers)
-- Solo validación de entrada (DTOs con class-validator)
-- Sin lógica de negocio
-- Sin acceso directo a base de datos
-
-### 2. Services Layer (Business Logic)
-
-**Responsabilidad**: Orquestar operaciones, aplicar reglas de negocio.
-
-```typescript
-@Injectable()
-export class PaymentsService {
-  constructor(
-    private prisma: PrismaService,
-    private paymentDistribution: PaymentDistributionService,
-  ) {}
-
-  async create(createPaymentDto: CreatePaymentDto) {
-    // Orquesta la operación completa
-    const result = await this.paymentDistribution.processPayment(
-      createPaymentDto.loanId,
-      createPaymentDto.clientId,
-      createPaymentDto.totalAmount,
-    );
-    return result;
-  }
-}
-```
-
-**Principios**:
-- Orquestación de operaciones complejas
-- Validaciones de negocio
-- Delegación a servicios especializados
-- Acceso a base de datos via Prisma
-
-### 3. Calculation Services Layer
-
-**Responsabilidad**: Cálculos puros, sin efectos secundarios directos.
-
-```typescript
-@Injectable()
-export class InterestCalculationService {
-  // Calcula interés sin modificar la base de datos directamente
-  calculateDailyInterest(
-    principal: number,
-    monthlyRate: number,
-    days: number,
-  ): number {
-    const dailyRate = monthlyRate / 30;
-    return principal * dailyRate * days;
-  }
-}
-```
-
-**Servicios especializados**:
-
-1. **InterestCalculationService**
-   - Cálculo de intereses diarios/mensuales
-   - Generación de registros de interés
-   - Aplicación de pagos a intereses (FIFO)
-
-2. **PenaltyCalculationService**
-   - Cálculo de mora
-   - Generación de registros de mora
-   - Aplicación de pagos a mora (FIFO)
-
-3. **PaymentDistributionService**
-   - Distribución automática de pagos
-   - Actualización de estado de préstamos
-   - Simulación de pagos
-
-**Principios**:
-- Funciones puras cuando es posible
-- Cálculos independientes del estado
-- Reutilizables
-- Testeables
-
-### 4. Data Access Layer (Prisma)
-
-**Responsabilidad**: Acceso a base de datos.
-
-```typescript
-@Injectable()
-export class PrismaService extends PrismaClient 
-  implements OnModuleInit, OnModuleDestroy {
-  // Maneja conexión y desconexión
-}
-```
-
-**Configuración Global**:
-- `@Global()` en `PrismaModule`
-- Una instancia compartida
-- Pool de conexiones automático
-
----
-
-## Flujo de Datos
-
-### Flujo 1: Crear Préstamo
-
-```
-Cliente → Controller → LoansService → Prisma → DB
-                              ↓
-                    Generar Cuotas (si aplica)
-```
-
-1. Cliente envía POST `/api/loans`
-2. Controller valida DTO
-3. LoansService valida tipo de préstamo
-4. Se crea el préstamo en DB
-5. Si es `FIXED_INSTALLMENTS`, se generan cuotas automáticamente
-
-### Flujo 2: Registrar Pago (El más complejo)
-
-```
-Cliente → Controller → PaymentsService → PaymentDistributionService
-                                                    ↓
-                                    ┌───────────────┴───────────────┐
-                                    ▼                               ▼
-                        PenaltyCalculationService   InterestCalculationService
-                                    ↓                               ↓
-                            Aplicar a Mora                  Aplicar a Intereses
-                                    ↓                               ↓
-                                    └───────────────┬───────────────┘
-                                                    ▼
-                                            Aplicar a Capital
-                                                    ↓
-                                        Actualizar Estado Préstamo
-                                                    ↓
-                                          Crear Registro de Pago
-```
-
-**Orden de aplicación**:
-1. Mora pendiente (FIFO)
-2. Intereses pendientes (FIFO)
-3. Capital principal
-4. Sobrante (si existe)
-
-### Flujo 3: Calcular Intereses (Job Programado)
-
-```
-Scheduler/Manual → InterestCalculationService → Crear LoanInterest
-```
-
-Este proceso debe ejecutarse periódicamente (diario/mensual) según el tipo de préstamo.
-
----
-
-## Servicios de Cálculo
-
-### InterestCalculationService
-
-#### Métodos Principales
-
-```typescript
-// Calcula y persiste interés para un período
-async calculateAndGenerateInterest(
-  loanId: string,
-  periodStartDate: Date,
-  periodEndDate: Date,
-): Promise<LoanInterest>
-
-// Obtiene total de intereses pendientes
-async getTotalPendingInterest(loanId: string): Promise<number>
-
-// Aplica pago a intereses (FIFO)
-async applyPaymentToInterest(
-  loanId: string,
-  paymentAmount: number,
-): Promise<{ applied: number; remaining: number }>
-```
-
-#### Fórmulas
-
-**Interés Diario**:
-```
-interés = principal × (tasaMensual / 30) × días
-```
-
-**Interés Mensual**:
-```
-interés = principal × tasaMensual
-```
-
-### PenaltyCalculationService
-
-#### Métodos Principales
-
-```typescript
-// Calcula mora (NO la cobra automáticamente)
-async calculatePenalty(
-  loanId: string,
-  daysLate: number,
-  penaltyRate?: number,
-): Promise<LoanPenalty>
-
-// Obtiene mora pendiente no cobrada
-async getTotalPendingPenalty(loanId: string): Promise<number>
-
-// Aplica pago a mora (FIFO)
-async applyPaymentToPenalty(
-  loanId: string,
-  paymentAmount: number,
-): Promise<{ applied: number; remaining: number }>
-```
-
-#### Fórmula de Mora
-
-```
-mora = capitalPendiente × tasaMora × (díasAtraso / 30)
-```
-
-### PaymentDistributionService
-
-#### Método Principal
-
-```typescript
-async processPayment(
-  loanId: string,
-  clientId: string,
-  totalAmount: number,
-  paymentDate?: Date,
-): Promise<PaymentResult>
-```
-
-#### Algoritmo de Distribución
-
-```typescript
-remainingAmount = totalAmount
-
-// PASO 1: Aplicar a mora
-if (hasPendingPenalty) {
-  { applied, remaining } = applyToPenalty(remainingAmount)
-  appliedToPenalty = applied
-  remainingAmount = remaining
-}
-
-// PASO 2: Aplicar a intereses
-if (hasPendingInterest) {
-  { applied, remaining } = applyToInterest(remainingAmount)
-  appliedToInterest = applied
-  remainingAmount = remaining
-}
-
-// PASO 3: Aplicar a capital
-if (remainingAmount > 0) {
-  appliedToPrincipal = min(remainingAmount, currentPrincipal)
-  currentPrincipal -= appliedToPrincipal
-  remainingAmount -= appliedToPrincipal
-}
-
-// PASO 4: Registrar pago
-createPayment({
-  totalAmount,
-  appliedToPenalty,
-  appliedToInterest,
-  appliedToPrincipal,
-})
-```
-
----
-
-## Reglas de Negocio
-
-### ❌ Prohibiciones Estrictas
-
-1. **NO mezclar capital e intereses**
-   ```typescript
-   // ❌ NUNCA hacer esto
-   loan.principal += interest.amount;
-   ```
-
-2. **NO capitalización automática**
-   ```typescript
-   // ❌ NUNCA hacer esto
-   if (interest.isPastDue) {
-     loan.principal += interest.amount;
-   }
-   ```
-
-3. **NO cálculos en frontend**
-   ```typescript
-   // ❌ En el frontend
-   const totalDebt = principal + interest + penalty; // NO
-   
-   // ✅ En el backend
-   const summary = await loansService.getLoanSummary(loanId);
-   ```
-
-4. **NO lógica financiera en controllers**
-   ```typescript
-   // ❌ En controller
-   @Post('payment')
-   create(@Body() dto: CreatePaymentDto) {
-     const interest = loan.principal * 0.05; // NO
-   }
-   
-   // ✅ En service
-   @Post('payment')
-   create(@Body() dto: CreatePaymentDto) {
-     return this.paymentsService.create(dto); // Sí
-   }
-   ```
-
-### ✅ Obligaciones Estrictas
-
-1. **Usar servicios dedicados para cálculos**
-   ```typescript
-   const interest = await this.interestService.calculateInterest(...);
-   ```
-
-2. **Transacciones para pagos**
-   ```typescript
-   await this.prisma.$transaction(async (tx) => {
-     // Todas las operaciones del pago
-   });
-   ```
-
-3. **Validaciones en DTOs**
-   ```typescript
-   export class CreateLoanDto {
-     @IsNumber()
-     @Min(0)
-     principalAmount: number;
-   }
-   ```
-
-4. **Separación de responsabilidades**
-   - Controllers: HTTP
-   - Services: Negocio
-   - Calculation Services: Cálculos
-   - Prisma: Base de datos
-
----
-
-## Patrones Utilizados
-
-### 1. Dependency Injection
-
-```typescript
-@Injectable()
-export class PaymentDistributionService {
-  constructor(
-    private prisma: PrismaService,
-    private interestService: InterestCalculationService,
-    private penaltyService: PenaltyCalculationService,
-  ) {}
-}
-```
-
-### 2. Repository Pattern (via Prisma)
-
-```typescript
-// Prisma actúa como repository
-this.prisma.loan.findUnique(...)
-this.prisma.payment.create(...)
-```
-
-### 3. Strategy Pattern (tipos de préstamos)
-
-```typescript
-switch (loan.type) {
-  case LoanType.DAILY_INTEREST:
-    return this.calculateDailyInterest(...);
-  case LoanType.MONTHLY_INTEREST:
-    return this.calculateMonthlyInterest(...);
-  case LoanType.FIXED_INSTALLMENTS:
-    return null; // Interés implícito en cuotas
-}
-```
-
-### 4. Command Pattern (pagos como comandos)
-
-```typescript
-const command: CreatePaymentDto = {
-  loanId,
-  clientId,
-  totalAmount,
-};
-
-const result = await this.paymentsService.create(command);
-```
-
----
-
-## Extensibilidad
-
-### Agregar Nuevo Tipo de Préstamo
-
-1. Agregar enum en `schema.prisma`:
-   ```prisma
-   enum LoanType {
-     FIXED_INSTALLMENTS
-     DAILY_INTEREST
-     MONTHLY_INTEREST
-     WEEKLY_INTEREST  // Nuevo
-   }
-   ```
-
-2. Agregar lógica en `InterestCalculationService`:
-   ```typescript
-   case LoanType.WEEKLY_INTEREST:
-     return this.calculateWeeklyInterest(...);
-   ```
-
-### Agregar Nuevo Método de Cálculo de Mora
-
-1. Modificar `PenaltyCalculationService`:
-   ```typescript
-   async calculateProgressivePenalty(
-     loanId: string,
-     daysLate: number,
-   ): Promise<LoanPenalty> {
-     // Nueva lógica
-   }
-   ```
-
-### Agregar Nuevo Tipo de Pago
-
-1. Crear nuevo servicio:
-   ```typescript
-   @Injectable()
-   export class AdvancedPaymentService {
-     // Lógica especializada
-   }
-   ```
-
-2. Inyectar en `PaymentsModule`
-
----
-
-## Testing
-
-### Unit Tests
-
-```typescript
-describe('InterestCalculationService', () => {
-  it('should calculate daily interest correctly', () => {
-    const result = service.calculateDailyInterest(10000, 0.05, 30);
-    expect(result).toBe(500); // 5% de 10000
-  });
-});
-```
-
-### Integration Tests
-
-```typescript
-describe('PaymentDistributionService', () => {
-  it('should distribute payment correctly', async () => {
-    // Setup: crear préstamo con intereses y mora
-    // Act: procesar pago
-    // Assert: verificar distribución
-  });
-});
-```
-
----
-
-## Monitoreo y Logs
-
-### Logs Importantes
-
-```typescript
-this.logger.log(`Payment processed: ${paymentId}`);
-this.logger.warn(`High penalty detected: ${penaltyAmount}`);
-this.logger.error(`Payment processing failed: ${error.message}`);
-```
-
-### Métricas Clave
-
-- Tiempo de procesamiento de pagos
-- Número de préstamos activos
-- Intereses generados vs cobrados
-- Tasa de mora
-
----
-
-## Seguridad
-
-### Validación de Entrada
-
-```typescript
-@IsNumber()
-@Min(0.01)
-@Max(1000000)
-principalAmount: number;
-```
-
-### Aislamiento de Datos
-
-```typescript
-// Siempre filtrar por lenderId
-where: {
-  lenderId: currentUser.lenderId,
-  id: loanId,
-}
-```
-
-### Contraseñas
-
-```typescript
-const hash = await bcrypt.hash(password, 10);
-```
-
----
-
-## Conclusión
-
-Esta arquitectura garantiza:
-
-- ✅ Separación clara de responsabilidades
-- ✅ Código mantenible y testeable
-- ✅ Escalabilidad
-- ✅ Cumplimiento de reglas de negocio
-- ✅ Trazabilidad de operaciones financieras
+## Backend Architecture
+
+### Layering
+The backend is organized in four practical layers.
+
+1. Transport layer
+- controllers
+- DTO validation
+- request parsing
+- no business calculations
+
+2. Application/domain orchestration layer
+- module services such as `LoansService`, `PaymentsService`, `ReportsService`, `DashboardService`
+- coordinates business workflows
+- may call specialized calculation services
+- may read/write through Prisma
+
+3. Financial calculation layer
+- `InterestCalculationService`
+- `PenaltyCalculationService`
+- `PaymentDistributionService`
+- contains specialized financial behavior
+- used by orchestration services
+
+4. Infrastructure/data layer
+- `PrismaService`
+- PostgreSQL / Supabase Postgres
+
+### Core Rule
+Financial truth lives in the backend.
+
+That means:
+- no frontend debt calculations
+- no duplicated payoff logic in UI
+- no mixed capital/interest/penalty figures without labels
+
+## Backend Modules And Ownership
+
+### `prisma`
+Owner of database connectivity.
+
+Responsibilities:
+- Prisma client lifecycle
+- database connection and retry behavior
+
+Must not contain business rules.
+
+### `loans`
+Owner of loan lifecycle and operational loan state.
+
+Responsibilities:
+- create/update/cancel loans
+- loan detail and summary
+- debt snapshot building
+- due today / overdue / portfolio operational views
+- operational read repairs currently needed by the model
+
+This module is the main owner of:
+- loan state
+- current principal semantics
+- operational debt picture
+
+### `payments`
+Owner of payment registration and payment distribution.
+
+Responsibilities:
+- register payments
+- simulate payments
+- distribute payment across penalty, interest, principal
+- early settlement logic
+- interest generation helpers
+- penalty generation helpers
+
+This module is the main owner of:
+- payment events
+- payment application rules
+- settlement behavior
+
+### `clients`
+Owner of client-facing operational read models for the lender.
+
+Responsibilities:
+- client list
+- client portfolio view
+- client detail composition
+
+This module is read-heavy.
+It should not become the owner of financial state transitions.
+
+### `reports`
+Owner of reporting read models.
+
+Responsibilities:
+- interest income
+- penalty income
+- payments history
+- closed loans report
+- portfolio summary for reports
+
+This module is read-only from a product perspective.
+It composes historical and aggregate data.
+
+### `dashboard`
+Owner of the lender home view aggregation.
+
+Responsibilities:
+- today dashboard
+- high-value operational aggregates
+- home screen composition
+
+This module is also read-heavy.
+Its job is to compose fast operational answers, not to own loan rules.
+
+### `users`
+Owner of internal users.
+Currently limited.
+
+### `lender`
+Owner of lender entity reads/writes.
+Currently limited.
+
+## Dependency Rules
+These are the rules the repo should follow from now on.
+
+### Allowed dependencies
+- controllers -> own module service
+- `dashboard` -> `loans`, `reports`, `prisma` when necessary for composition
+- `reports` -> `loans` for operational snapshots and read composition
+- `clients` -> `loans` for portfolio/debt composition
+- `loans` -> `payments` calculation services when loan snapshots require operational financial derivation
+- all backend modules -> `prisma`
+- cross-cutting helpers -> `common`
+
+### Not allowed
+- controllers talking directly to Prisma
+- frontend calling the database directly
+- frontend reproducing debt logic locally
+- `reports` owning write-side financial rules
+- `clients` owning write-side financial rules
+- random cross-module financial behavior outside `loans` and `payments`
+
+## Important Clarification About Strictness
+Current boundaries are not hard-enforced.
+For example, multiple services still inject `PrismaService` directly.
+
+That means the architecture is:
+- real
+- documented
+- but enforced mostly by discipline, not by tooling
+
+This is acceptable for the current stage.
+It should simply be acknowledged.
+
+## Why We Keep This Shape
+This architecture fits the current product constraints:
+- one business domain
+- one main operator persona
+- backend-centered financial logic
+- mobile-first web frontend
+- no need yet for distributed services
+
+It optimizes for:
+- speed of iteration
+- clear module ownership
+- low operational complexity
+- one deployment unit per app side
+
+## Financial Invariants
+These rules are architectural, not just business detail.
+
+1. Capital, interest, and penalty are separate concepts.
+2. Payment is an event, not a blind subtraction from balance.
+3. Loan closure must be derived from explicit closure criteria.
+4. Payoff/settlement numbers come from backend logic only.
+5. Historical queries must not silently corrupt current financial state.
+
+## Read vs Write Responsibility
+A useful way to understand the backend is this:
+
+Write-oriented modules:
+- `loans`
+- `payments`
+
+Read/composition modules:
+- `dashboard`
+- `reports`
+- `clients`
+
+Support modules:
+- `prisma`
+- `users`
+- `lender`
+- `common`
+
+This distinction matters.
+Read modules should avoid becoming hidden owners of business state.
+
+## Frontend Architecture
+The frontend under `web/` is organized by route plus feature.
+
+### Route layer
+- `web/src/app/...`
+- owns route entrypoints, page composition, loading states
+
+### Feature layer
+- `web/src/features/...`
+- owns feature-specific components and API helpers
+- examples: dashboard, portfolio, clients, loan-detail, payments, reports, loans
+
+### Shared layer
+- `web/src/shared/...`
+- app shell
+- shared UI and utilities
+
+### Frontend rules
+- no financial calculations in UI
+- use backend endpoints explicitly
+- loading/error/empty/success states are part of the architecture
+- mobile-first is mandatory
+
+## Current Weaknesses
+These are known and accepted for now.
+
+1. No strict boundary tooling
+- no dependency-cruiser
+- no import rules by module
+- no architecture tests
+
+2. Direct Prisma usage is widespread
+- faster to build
+- less strict than a repository/query-service approach
+
+3. Some operational reads still trigger repair logic
+- pragmatic for now
+- not a fully separated read model architecture
+
+## What We Are Not Doing Right Now
+- microservices
+- event sourcing
+- CQRS with separate read store
+- strict repository-per-aggregate design
+- frontend-side financial logic
+- client portal first
+
+## Evolution Path
+When the product needs more rigor, the next architectural steps should be incremental.
+
+1. Add module boundary tooling
+2. Separate read composition services more explicitly
+3. Reduce unnecessary write-on-read behavior where possible
+4. Introduce auth as a first-class architectural boundary
+5. Keep backend and database in the same region in production
+
+## Definition Of Architectural Compliance
+A change is aligned with this architecture if:
+- it respects module ownership
+- it keeps financial logic in backend services
+- it does not move debt rules into the frontend
+- it does not make read modules accidental owners of write logic
+- it preserves the separation between capital, interest, and penalty
+
+## Short Version
+If someone asks "what architecture does this repo use?", the answer is:
+
+- modular monolith
+- NestJS backend with domain-oriented modules
+- Prisma as shared ORM/data access layer
+- Next.js frontend organized by route and feature
+- backend-owned financial logic
+- boundaries enforced mainly by convention, not yet by tooling
+

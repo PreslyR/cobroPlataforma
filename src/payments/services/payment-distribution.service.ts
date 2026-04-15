@@ -119,6 +119,7 @@ export class PaymentDistributionService {
       appliedToInterest = earlySettlementResult.appliedToInterest;
       appliedToPrincipal = earlySettlementResult.appliedToPrincipal;
       updatedCurrentPrincipal = earlySettlementResult.updatedCurrentPrincipal;
+      balanceUsedToDetermineClosure = updatedCurrentPrincipal;
       isEarlySettlement = true;
       earlySettlementInterestModeUsed = earlySettlementResult.modeUsed;
       interestDaysCharged = earlySettlementResult.interestDaysCharged;
@@ -201,6 +202,7 @@ export class PaymentDistributionService {
           updatedCurrentPrincipal = this.normalizeMoney(
             currentOutstandingPrincipal - amountToApplyToPrincipal,
           );
+          balanceUsedToDetermineClosure = updatedCurrentPrincipal;
         }
       }
     }
