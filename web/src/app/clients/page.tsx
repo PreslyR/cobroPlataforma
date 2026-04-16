@@ -4,7 +4,6 @@ import { formatCurrency, formatLongDate } from "@/shared/lib/format";
 import styles from "./clients.module.css";
 
 type SearchParams = Promise<{
-  lenderId?: string | string[];
   date?: string | string[];
   search?: string | string[];
 }>;
@@ -43,37 +42,15 @@ export default async function ClientsPage({
   searchParams?: SearchParams;
 }) {
   const resolvedSearchParams = (await searchParams) ?? {};
-  const lenderId =
-    getSingleParam(resolvedSearchParams.lenderId) ??
-    process.env.NEXT_PUBLIC_DEFAULT_LENDER_ID ??
-    "";
   const today = toDateInputValue(new Date());
   const date = clampDateInputValue(
     getSingleParam(resolvedSearchParams.date) ?? today,
     today,
   );
   const search = getSingleParam(resolvedSearchParams.search)?.trim() ?? "";
-  const baseQueryString = buildQueryString({ lenderId, date });
-
-  if (!lenderId) {
-    return (
-      <main className="page-shell">
-        <section className="panel gap-4">
-          <p className="eyebrow">Clientes</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">
-            Falta definir el prestamista activo.
-          </h1>
-          <p className="text-sm leading-6 text-[var(--muted)]">
-            Agrega <code>lenderId</code> en la URL o define el prestamista por
-            defecto para abrir la vista de clientes.
-          </p>
-        </section>
-      </main>
-    );
-  }
+  const baseQueryString = buildQueryString({ date });
 
   const clientsResult = await getClientsPortfolio({
-    lenderId,
     asOf: date,
     search,
   });
@@ -129,7 +106,6 @@ export default async function ClientsPage({
         </div>
 
         <form className={styles.controlsForm}>
-          <input type="hidden" name="lenderId" value={lenderId} />
           <label className="surface-field">
             <span className="surface-label">Buscar cliente</span>
             <input
@@ -208,4 +184,3 @@ export default async function ClientsPage({
     </main>
   );
 }
-

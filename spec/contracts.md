@@ -17,6 +17,41 @@ That belongs in `domain.md`.
 3. The frontend consumes backend results and presents them.
 4. The frontend must not derive payoff totals, debt balances, or settlement values locally.
 5. Data is tenant-scoped by `lenderId`.
+6. In the current auth contract, lender scope is resolved from the authenticated internal user, not from a URL query parameter.
+
+## Auth Contract
+
+### Backend auth boundary
+Current operational endpoints are protected.
+The backend expects:
+- `Authorization: Bearer <access_token>`
+- a valid Supabase access token
+- an internal active `User` mapped by email
+- `User.role = ADMIN`
+- an active lender linked to that internal user
+
+If any of those conditions fail, the request must not proceed as an authenticated operational request.
+
+### `/api/auth/me`
+Current purpose:
+- confirm that the Supabase session is valid for this app
+- resolve the internal admin user
+- resolve the active lender context
+
+The response contract returns:
+- authenticated internal user summary
+- resolved lender summary
+
+### Frontend auth boundary
+The web app currently assumes:
+- Supabase session in browser/server context
+- server-side reads send the bearer token to the backend
+- browser-side writes send the bearer token to the backend
+- route access is guarded before rendering operational pages
+
+### Scope rule
+Operational frontend routes must not depend on `lenderId` in the URL to decide tenant scope.
+`lenderId` may still appear in backend payloads and read models as data, but it is no longer the primary input contract for navigation or authorization.
 
 ## Core Entities
 
@@ -31,8 +66,9 @@ Relevant contract expectations:
 Represents an internal user.
 
 Current role in the repo:
-- limited operational use
-- not yet the main auth boundary of the product
+- internal auth boundary for the lender-side product
+- currently expected to map to a Supabase auth account by email
+- only active internal admin users can operate the current product
 
 ### Client
 Represents a borrower.
@@ -184,7 +220,8 @@ Those two operations must not be treated as equivalent.
 1. Never display an unlabeled single number that mixes principal, interest, and penalty.
 2. Always call explicit backend endpoints for debt breakdown, payment simulation, and payoff preview.
 3. Treat backend monetary results as authoritative.
-4. Keep lender scope explicit until auth replaces the URL-driven lender context.
+4. The web app must use the authenticated session as the primary tenant input.
+5. The UI must not require `lenderId` in the URL for normal navigation.
 
 ## Short Version
 This document answers:

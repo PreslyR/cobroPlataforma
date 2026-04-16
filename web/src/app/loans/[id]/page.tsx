@@ -27,6 +27,8 @@ type LoanDetailPageProps = {
     date?: string | string[];
     origin?: string | string[];
     clientId?: string | string[];
+    loanId?: string | string[];
+    loanOrigin?: string | string[];
     from?: string | string[];
     to?: string | string[];
   }>;
@@ -106,7 +108,6 @@ export default async function LoanDetailPage({
 }: LoanDetailPageProps) {
   const { id } = await params;
   const resolvedSearchParams = (await searchParams) ?? {};
-  const lenderId = getSingleParam(resolvedSearchParams.lenderId);
   const today = toDateInputValue(new Date());
   const date = clampDateInputValue(
     getSingleParam(resolvedSearchParams.date) ?? today,
@@ -116,8 +117,8 @@ export default async function LoanDetailPage({
   const clientIdParam = getSingleParam(resolvedSearchParams.clientId);
   const from = getSingleParam(resolvedSearchParams.from);
   const to = getSingleParam(resolvedSearchParams.to);
-  const backQueryString = buildQueryString({ lenderId, date });
-  const reportsBackQueryString = buildQueryString({ lenderId, from, to });
+  const backQueryString = buildQueryString({ date });
+  const reportsBackQueryString = buildQueryString({ from, to });
   const loanBundle = await getLoanDetailPageData({
     loanId: id,
     date,
@@ -150,7 +151,7 @@ export default async function LoanDetailPage({
     loanBundle.data;
   const clientId = clientIdParam ?? loan.clientId;
   const paymentQueryString = buildQueryString({
-    lenderId,
+
     date,
     loanId: id,
     origin,
@@ -164,8 +165,13 @@ export default async function LoanDetailPage({
     dueToday: debtBreakdown.dueToday,
   });
   const clientDetailHref = `/clients/${clientId}${buildQueryString({
-    lenderId,
+
     date,
+    origin: "loan-detail",
+    loanId: id,
+    loanOrigin: origin,
+    from,
+    to,
   })}`;
   let backHref = `/portfolio${backQueryString}`;
   let backLabel = "Volver a cartera";
@@ -272,7 +278,6 @@ export default async function LoanDetailPage({
         </div>
 
         <form className={styles.controlBar}>
-          <input type="hidden" name="lenderId" value={lenderId ?? ""} />
           {origin ? <input type="hidden" name="origin" value={origin} /> : null}
           {from ? <input type="hidden" name="from" value={from} /> : null}
           {to ? <input type="hidden" name="to" value={to} /> : null}
@@ -373,7 +378,7 @@ export default async function LoanDetailPage({
                   : "Incluye el saldo pendiente del plan y la mora existente."
               }
               href={`/payments/new${buildQueryString({
-                lenderId,
+            
                 date,
                 loanId: id,
                 clientId,
@@ -398,7 +403,7 @@ export default async function LoanDetailPage({
                     : ""
                 }.`}
                 href={`/payments/new${buildQueryString({
-                  lenderId,
+              
                   date,
                   loanId: id,
                   mode: "PRORATED_BY_DAYS",
@@ -582,6 +587,9 @@ export default async function LoanDetailPage({
     </main>
   );
 }
+
+
+
 
 
 

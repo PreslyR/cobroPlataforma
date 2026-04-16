@@ -6,7 +6,6 @@ import styles from "./portfolio.module.css";
 
 type SearchParams = Promise<{
   date?: string | string[];
-  lenderId?: string | string[];
   status?: string | string[];
   type?: string | string[];
   search?: string | string[];
@@ -78,10 +77,6 @@ export default async function PortfolioPage({
   searchParams?: SearchParams;
 }) {
   const resolvedSearchParams = (await searchParams) ?? {};
-  const lenderId =
-    getSingleParam(resolvedSearchParams.lenderId) ??
-    process.env.NEXT_PUBLIC_DEFAULT_LENDER_ID ??
-    "";
   const today = toDateInputValue(new Date());
   const date = clampDateInputValue(
     getSingleParam(resolvedSearchParams.date) ?? today,
@@ -90,27 +85,9 @@ export default async function PortfolioPage({
   const status = getSingleParam(resolvedSearchParams.status) ?? "ALL";
   const type = getSingleParam(resolvedSearchParams.type) ?? "ALL";
   const search = getSingleParam(resolvedSearchParams.search) ?? "";
-  const detailQueryString = buildQueryString({ lenderId, date, origin: "portfolio" });
-
-  if (!lenderId) {
-    return (
-      <main className="page-shell">
-        <section className="panel gap-4">
-          <p className="eyebrow">Configuracion inicial</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">
-            Falta definir el prestamista activo.
-          </h1>
-          <p className="text-sm leading-6 text-[var(--muted)]">
-            Para usar la cartera, agrega <code>lenderId</code> en la URL o define
-            <code>NEXT_PUBLIC_DEFAULT_LENDER_ID</code> en <code>web/.env.local</code>.
-          </p>
-        </section>
-      </main>
-    );
-  }
+  const detailQueryString = buildQueryString({ date, origin: "portfolio" });
 
   const portfolio = await getPortfolio({
-    lenderId,
     date,
     status,
     type,
@@ -127,7 +104,8 @@ export default async function PortfolioPage({
           </h1>
           <p className="text-sm leading-6 text-[var(--muted)]">
             Verifica que el backend este corriendo en{" "}
-            <code>{portfolio.meta.baseUrl}</code> y que el prestamista tenga datos.
+            <code>{portfolio.meta.baseUrl}</code> y que tu sesion tenga acceso al
+            prestamista correcto.
           </p>
           <div className="rounded-2xl border border-[var(--danger-soft)] bg-[var(--danger-soft)]/60 p-4 text-sm text-[var(--foreground)]">
             {portfolio.error}
@@ -184,7 +162,6 @@ export default async function PortfolioPage({
         </div>
 
         <form className={styles.controlsForm}>
-          <input type="hidden" name="lenderId" value={lenderId} />
           <input type="hidden" name="status" value={status} />
           <input type="hidden" name="type" value={type} />
 
@@ -228,7 +205,6 @@ export default async function PortfolioPage({
                 label={filter.label}
                 active={status === filter.value}
                 href={`/portfolio${buildQueryString({
-                  lenderId,
                   date,
                   type,
                   status: filter.value,
@@ -248,7 +224,6 @@ export default async function PortfolioPage({
                 label={filter.label}
                 active={type === filter.value}
                 href={`/portfolio${buildQueryString({
-                  lenderId,
                   date,
                   status,
                   type: filter.value,
@@ -292,4 +267,3 @@ export default async function PortfolioPage({
     </main>
   );
 }
-

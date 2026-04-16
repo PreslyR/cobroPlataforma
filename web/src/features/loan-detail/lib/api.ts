@@ -1,10 +1,14 @@
-import {
+﻿import {
   LoanDebtBreakdownResponse,
   LoanDetailPageData,
   LoanDetailRecord,
   LoanPayoffPreviewResponse,
   LoanSummaryResponse,
 } from "@/features/loan-detail/types";
+import {
+  fetchBackendFromServer,
+  getBackendBaseUrl,
+} from "@/shared/lib/api/server-backend";
 
 type FetchResult<T> =
   | { ok: true; data: T }
@@ -22,22 +26,18 @@ type LoanDetailBundleResult =
       meta: { baseUrl: string };
     };
 
-const API_BASE_URL =
-  process.env.API_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  "http://localhost:3000/api";
 const READ_REVALIDATE_SECONDS = 5;
 
 async function fetchJson<T>(path: string): Promise<FetchResult<T>> {
   try {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
-      next: { revalidate: READ_REVALIDATE_SECONDS },
+    const response = await fetchBackendFromServer(path, {
+      revalidate: READ_REVALIDATE_SECONDS,
     });
 
     if (!response.ok) {
       return {
         ok: false,
-        error: `El backend respondió con ${response.status}.`,
+        error: `El backend respondio con ${response.status}.`,
       };
     }
 
@@ -63,6 +63,7 @@ export async function getLoanDetailPageData({
   loanId: string;
   date?: string;
 }): Promise<LoanDetailBundleResult> {
+  const baseUrl = getBackendBaseUrl();
   const searchParams = new URLSearchParams();
 
   if (date) {
@@ -76,37 +77,37 @@ export async function getLoanDetailPageData({
 
   const [loanResult, debtBreakdownResult, summaryResult, payoffFullMonthResult] =
     await Promise.all([
-    fetchJson<LoanDetailRecord>(
-      `/loans/${loanId}${
-        searchParams.toString() ? `?${searchParams.toString()}` : ""
-      }`,
-    ),
-    fetchJson<LoanDebtBreakdownResponse>(
-      `/loans/${loanId}/debt-breakdown${
-        searchParams.toString() ? `?${searchParams.toString()}` : ""
-      }`,
-    ),
-    fetchJson<LoanSummaryResponse>(
-      `/loans/${loanId}/summary${
-        searchParams.toString() ? `?${searchParams.toString()}` : ""
-      }`,
-    ),
-    fetchJson<LoanPayoffPreviewResponse>(
-      `/loans/${loanId}/payoff-preview${
-        payoffSearchParams.toString() ? `?${payoffSearchParams.toString()}` : ""
-      }`,
-    ),
-  ]);
+      fetchJson<LoanDetailRecord>(
+        `/loans/${loanId}${
+          searchParams.toString() ? `?${searchParams.toString()}` : ""
+        }`,
+      ),
+      fetchJson<LoanDebtBreakdownResponse>(
+        `/loans/${loanId}/debt-breakdown${
+          searchParams.toString() ? `?${searchParams.toString()}` : ""
+        }`,
+      ),
+      fetchJson<LoanSummaryResponse>(
+        `/loans/${loanId}/summary${
+          searchParams.toString() ? `?${searchParams.toString()}` : ""
+        }`,
+      ),
+      fetchJson<LoanPayoffPreviewResponse>(
+        `/loans/${loanId}/payoff-preview${
+          payoffSearchParams.toString() ? `?${payoffSearchParams.toString()}` : ""
+        }`,
+      ),
+    ]);
 
   if (!loanResult.ok) {
-    return { ok: false, error: loanResult.error, meta: { baseUrl: API_BASE_URL } };
+    return { ok: false, error: loanResult.error, meta: { baseUrl } };
   }
 
   if (!debtBreakdownResult.ok) {
     return {
       ok: false,
       error: debtBreakdownResult.error,
-      meta: { baseUrl: API_BASE_URL },
+      meta: { baseUrl },
     };
   }
 
@@ -114,7 +115,7 @@ export async function getLoanDetailPageData({
     return {
       ok: false,
       error: summaryResult.error,
-      meta: { baseUrl: API_BASE_URL },
+      meta: { baseUrl },
     };
   }
 
@@ -122,7 +123,7 @@ export async function getLoanDetailPageData({
     return {
       ok: false,
       error: payoffFullMonthResult.error,
-      meta: { baseUrl: API_BASE_URL },
+      meta: { baseUrl },
     };
   }
 
@@ -140,7 +141,7 @@ export async function getLoanDetailPageData({
       return {
         ok: false,
         error: payoffProratedResult.error,
-        meta: { baseUrl: API_BASE_URL },
+        meta: { baseUrl },
       };
     }
 
@@ -156,6 +157,6 @@ export async function getLoanDetailPageData({
       payoffFullMonth: payoffFullMonthResult.data,
       payoffProrated,
     },
-    meta: { baseUrl: API_BASE_URL },
+    meta: { baseUrl },
   };
 }

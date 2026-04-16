@@ -10,42 +10,57 @@ import {
 import { PaymentsService } from './payments.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { EarlySettlementInterestMode } from '@prisma/client';
+import { CurrentAuthUser } from '../auth/current-auth-user.decorator';
+import { AuthenticatedAppUser } from '../auth/auth.types';
 
 @Controller('payments')
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
   @Post()
-  create(@Body() createPaymentDto: CreatePaymentDto) {
-    return this.paymentsService.create(createPaymentDto);
+  create(
+    @CurrentAuthUser() authUser: AuthenticatedAppUser,
+    @Body() createPaymentDto: CreatePaymentDto,
+  ) {
+    return this.paymentsService.create(createPaymentDto, authUser.lenderId);
   }
 
   @Get()
   findAll(
+    @CurrentAuthUser() authUser: AuthenticatedAppUser,
     @Query('loanId') loanId?: string,
     @Query('clientId') clientId?: string,
   ) {
-    return this.paymentsService.findAll(loanId, clientId);
+    return this.paymentsService.findAll(loanId, clientId, authUser.lenderId);
   }
 
   @Get('simulate/:loanId')
   simulatePayment(
+    @CurrentAuthUser() authUser: AuthenticatedAppUser,
     @Param('loanId') loanId: string,
     @Query('amount') amount: string,
     @Query('paymentDate') paymentDate?: string,
     @Query('isEarlySettlement') isEarlySettlement?: string,
     @Query('mode') mode?: string,
   ) {
-    return this.paymentsService.simulatePayment(loanId, parseFloat(amount), {
-      paymentDate,
-      isEarlySettlement: this.parseBooleanQuery(isEarlySettlement),
-      earlySettlementInterestModeOverride: this.parseEarlySettlementMode(mode),
-    });
+    return this.paymentsService.simulatePayment(
+      loanId,
+      parseFloat(amount),
+      {
+        paymentDate,
+        isEarlySettlement: this.parseBooleanQuery(isEarlySettlement),
+        earlySettlementInterestModeOverride: this.parseEarlySettlementMode(mode),
+      },
+      authUser.lenderId,
+    );
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.paymentsService.findOne(id);
+  findOne(
+    @CurrentAuthUser() authUser: AuthenticatedAppUser,
+    @Param('id') id: string,
+  ) {
+    return this.paymentsService.findOne(id, authUser.lenderId);
   }
 
   private parseBooleanQuery(value?: string): boolean | undefined {

@@ -1,7 +1,10 @@
-import { PortfolioResponse } from "@/features/portfolio/types";
+﻿import { PortfolioResponse } from "@/features/portfolio/types";
+import {
+  fetchBackendFromServer,
+  getBackendBaseUrl,
+} from "@/shared/lib/api/server-backend";
 
 type PortfolioParams = {
-  lenderId: string;
   date?: string;
   status?: string;
   type?: string;
@@ -20,20 +23,15 @@ type PortfolioResult =
       meta: { baseUrl: string };
     };
 
-const API_BASE_URL =
-  process.env.API_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  "http://localhost:3000/api";
 const READ_REVALIDATE_SECONDS = 5;
 
 export async function getPortfolio({
-  lenderId,
   date,
   status,
   type,
   search,
 }: PortfolioParams): Promise<PortfolioResult> {
-  const searchParams = new URLSearchParams({ lenderId });
+  const searchParams = new URLSearchParams();
 
   if (date) {
     searchParams.set("date", date);
@@ -51,18 +49,21 @@ export async function getPortfolio({
     searchParams.set("search", search.trim());
   }
 
-  const url = `${API_BASE_URL}/loans/portfolio?${searchParams.toString()}`;
+  const path = `/loans/portfolio${
+    searchParams.toString() ? `?${searchParams.toString()}` : ""
+  }`;
+  const baseUrl = getBackendBaseUrl();
 
   try {
-    const response = await fetch(url, {
-      next: { revalidate: READ_REVALIDATE_SECONDS },
+    const response = await fetchBackendFromServer(path, {
+      revalidate: READ_REVALIDATE_SECONDS,
     });
 
     if (!response.ok) {
       return {
         ok: false,
-        error: `El backend respondió con ${response.status}.`,
-        meta: { baseUrl: API_BASE_URL },
+        error: `El backend respondio con ${response.status}.`,
+        meta: { baseUrl },
       };
     }
 
@@ -71,7 +72,7 @@ export async function getPortfolio({
     return {
       ok: true,
       data,
-      meta: { baseUrl: API_BASE_URL },
+      meta: { baseUrl },
     };
   } catch (error) {
     return {
@@ -80,7 +81,7 @@ export async function getPortfolio({
         error instanceof Error
           ? error.message
           : "No se pudo conectar con el backend.",
-      meta: { baseUrl: API_BASE_URL },
+      meta: { baseUrl },
     };
   }
 }

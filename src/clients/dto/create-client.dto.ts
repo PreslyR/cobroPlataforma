@@ -2,7 +2,8 @@ import { IsString, IsOptional, IsBoolean } from 'class-validator';
 
 export class CreateClientDto {
   @IsString()
-  lenderId: string;
+  @IsOptional()
+  lenderId?: string;
 
   @IsString()
   @IsOptional()

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+﻿import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { LoanStatus } from '@prisma/client';
 import { LoansService } from '../loans/loans.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -16,8 +16,18 @@ export class ClientsService {
   ) {}
 
   async create(createClientDto: CreateClientDto) {
+    const { lenderId, userId, ...clientData } = createClientDto;
+
+    if (!lenderId) {
+      throw new BadRequestException('lenderId is required to create a client');
+    }
+
     return this.prisma.client.create({
-      data: createClientDto,
+      data: {
+        ...clientData,
+        lender: { connect: { id: lenderId } },
+        ...(userId ? { user: { connect: { id: userId } } } : {}),
+      },
       include: {
         lender: {
           select: {
@@ -61,9 +71,12 @@ export class ClientsService {
     });
   }
 
-  async findOne(id: string) {
-    const client = await this.prisma.client.findUnique({
-      where: { id },
+  async findOne(id: string, lenderId?: string) {
+    const client = await this.prisma.client.findFirst({
+      where: {
+        id,
+        ...(lenderId && { lenderId }),
+      },
       include: {
         lender: {
           select: {
@@ -93,8 +106,8 @@ export class ClientsService {
     return client;
   }
 
-  async update(id: string, updateClientDto: UpdateClientDto) {
-    await this.findOne(id); // Verifica que existe
+  async update(id: string, updateClientDto: UpdateClientDto, lenderId?: string) {
+    await this.findOne(id, lenderId);
 
     return this.prisma.client.update({
       where: { id },
@@ -116,8 +129,8 @@ export class ClientsService {
     });
   }
 
-  async remove(id: string) {
-    await this.findOne(id); // Verifica que existe
+  async remove(id: string, lenderId?: string) {
+    await this.findOne(id, lenderId);
 
     // Soft delete
     return this.prisma.client.update({
@@ -261,13 +274,16 @@ export class ClientsService {
     };
   }
 
-  async getClientDebt(id: string, asOf?: string) {
+  async getClientDebt(id: string, asOf?: string, lenderId?: string) {
     const asOfDate = this.parseDateOnlyOrNow(asOf);
     const asOfKey = this.toDateKey(asOfDate);
 
     const client = await measureAsync(this.logger, 'clients.getClientDebt.loadClient', () =>
-      this.prisma.client.findUnique({
-        where: { id },
+      this.prisma.client.findFirst({
+        where: {
+          id,
+          ...(lenderId && { lenderId }),
+        },
         select: {
         id: true,
         lenderId: true,
@@ -507,3 +523,5 @@ export class ClientsService {
     return 2;
   }
 }
+
+

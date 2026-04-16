@@ -1,8 +1,11 @@
-import { DashboardTodayResponse } from "@/features/dashboard/types";
+﻿import { DashboardTodayResponse } from "@/features/dashboard/types";
+import {
+  fetchBackendFromServer,
+  getBackendBaseUrl,
+} from "@/shared/lib/api/server-backend";
 
 type DashboardParams = {
   date?: string;
-  lenderId: string;
 };
 
 type DashboardResult =
@@ -17,33 +20,31 @@ type DashboardResult =
       meta: { baseUrl: string };
     };
 
-const API_BASE_URL =
-  process.env.API_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  "http://localhost:3000/api";
 const READ_REVALIDATE_SECONDS = 5;
 
 export async function getDashboardToday({
   date,
-  lenderId,
 }: DashboardParams): Promise<DashboardResult> {
-  const searchParams = new URLSearchParams({ lenderId });
+  const searchParams = new URLSearchParams();
   if (date) {
     searchParams.set("date", date);
   }
 
-  const url = `${API_BASE_URL}/dashboard/today?${searchParams.toString()}`;
+  const path = `/dashboard/today${
+    searchParams.toString() ? `?${searchParams.toString()}` : ""
+  }`;
+  const baseUrl = getBackendBaseUrl();
 
   try {
-    const response = await fetch(url, {
-      next: { revalidate: READ_REVALIDATE_SECONDS },
+    const response = await fetchBackendFromServer(path, {
+      revalidate: READ_REVALIDATE_SECONDS,
     });
 
     if (!response.ok) {
       return {
         ok: false,
-        error: `El backend respondió con ${response.status}.`,
-        meta: { baseUrl: API_BASE_URL },
+        error: `El backend respondio con ${response.status}.`,
+        meta: { baseUrl },
       };
     }
 
@@ -52,7 +53,7 @@ export async function getDashboardToday({
     return {
       ok: true,
       data,
-      meta: { baseUrl: API_BASE_URL },
+      meta: { baseUrl },
     };
   } catch (error) {
     return {
@@ -61,7 +62,7 @@ export async function getDashboardToday({
         error instanceof Error
           ? error.message
           : "No se pudo conectar con el backend.",
-      meta: { baseUrl: API_BASE_URL },
+      meta: { baseUrl },
     };
   }
 }

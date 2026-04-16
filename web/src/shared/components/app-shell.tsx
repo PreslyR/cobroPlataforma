@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { ActionLauncher } from "@/shared/components/action-launcher";
 import { PrimaryNav, type PrimaryNavItem } from "@/shared/components/primary-nav";
+import { SignOutButton } from "@/shared/components/sign-out-button";
 
 type AppShellProps = {
   activeItem: PrimaryNavItem["key"];
@@ -8,6 +9,7 @@ type AppShellProps = {
   paymentHref: string;
   newLoanHref: string;
   children: ReactNode;
+  mobileHeaderTone?: "default" | "home";
 };
 
 export function AppShell({
@@ -16,6 +18,7 @@ export function AppShell({
   paymentHref,
   newLoanHref,
   children,
+  mobileHeaderTone = "default",
 }: AppShellProps) {
   const items = navItems.map((item) => ({
     ...item,
@@ -31,6 +34,7 @@ export function AppShell({
           <p className="app-shell-brand-copy">
             Navegacion principal y acciones rapidas del negocio.
           </p>
+          <SignOutButton variant="desktop" />
         </div>
 
         <PrimaryNav items={items} variant="desktop" />
@@ -41,7 +45,23 @@ export function AppShell({
         />
       </aside>
 
-      <div className="app-shell-content">{children}</div>
+      <div className="app-shell-content">
+        <div
+          className={`app-shell-mobile-bar ${
+            mobileHeaderTone === "home" ? "app-shell-mobile-bar-home" : ""
+          }`}
+        >
+          <div className="app-shell-mobile-bar-inner">
+            <div className="app-shell-mobile-brand">
+              <p className="eyebrow">Cobro</p>
+              <p className="app-shell-mobile-brand-copy">Operacion del prestamista</p>
+            </div>
+            <SignOutButton variant="mobile" />
+          </div>
+        </div>
+
+        {children}
+      </div>
 
       <div className="app-mobile-dock">
         <ActionLauncher

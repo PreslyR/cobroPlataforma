@@ -17,7 +17,13 @@ export class PaymentsService {
     private paymentDistribution: PaymentDistributionService,
   ) {}
 
-  async create(createPaymentDto: CreatePaymentDto) {
+  async create(createPaymentDto: CreatePaymentDto, lenderId?: string) {
+    await this.assertLoanAndClientAccess(
+      createPaymentDto.loanId,
+      createPaymentDto.clientId,
+      lenderId,
+    );
+
     const paymentDate = this.parseOperationalPaymentDate(
       createPaymentDto.paymentDate,
     );
@@ -35,11 +41,16 @@ export class PaymentsService {
     );
   }
 
-  async findAll(loanId?: string, clientId?: string) {
+  async findAll(loanId?: string, clientId?: string, lenderId?: string) {
     return this.prisma.payment.findMany({
       where: {
         ...(loanId && { loanId }),
         ...(clientId && { clientId }),
+        ...(lenderId && {
+          loan: {
+            lenderId,
+          },
+        }),
       },
       include: {
         loan: {
@@ -65,9 +76,16 @@ export class PaymentsService {
     });
   }
 
-  async findOne(id: string) {
-    const payment = await this.prisma.payment.findUnique({
-      where: { id },
+  async findOne(id: string, lenderId?: string) {
+    const payment = await this.prisma.payment.findFirst({
+      where: {
+        id,
+        ...(lenderId && {
+          loan: {
+            lenderId,
+          },
+        }),
+      },
       include: {
         loan: {
           select: {
@@ -106,7 +124,10 @@ export class PaymentsService {
     loanId: string,
     amount: number,
     options: SimulatePaymentOptions = {},
+    lenderId?: string,
   ) {
+    await this.assertLoanAccess(loanId, lenderId);
+
     const paymentDate = this.parseOperationalPaymentDate(options.paymentDate);
 
     return this.paymentDistribution.simulatePayment(loanId, amount, paymentDate, {
@@ -137,5 +158,58 @@ export class PaymentsService {
     return new Date(
       Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
     );
+  }
+
+  private async assertLoanAccess(loanId: string, lenderId?: string) {
+    if (!lenderId) {
+      return;
+    }
+
+    const loan = await this.prisma.loan.findFirst({
+      where: {
+        id: loanId,
+        lenderId,
+      },
+      select: { id: true },
+    });
+
+    if (!loan) {
+      throw new NotFoundException(`Loan with ID ${loanId} not found`);
+    }
+  }
+
+  private async assertLoanAndClientAccess(
+    loanId: string,
+    clientId: string,
+    lenderId?: string,
+  ) {
+    if (!lenderId) {
+      return;
+    }
+
+    const [loan, client] = await Promise.all([
+      this.prisma.loan.findFirst({
+        where: {
+          id: loanId,
+          lenderId,
+        },
+        select: { id: true },
+      }),
+      this.prisma.client.findFirst({
+        where: {
+          id: clientId,
+          lenderId,
+        },
+        select: { id: true },
+      }),
+    ]);
+
+    if (!loan) {
+      throw new NotFoundException(`Loan with ID ${loanId} not found`);
+    }
+
+    if (!client) {
+      throw new NotFoundException(`Client with ID ${clientId} not found`);
+    }
   }
 }

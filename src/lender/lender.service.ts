@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+﻿import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateLenderDto } from './dto/create-lender.dto';
 import { UpdateLenderDto } from './dto/update-lender.dto';
@@ -13,9 +13,12 @@ export class LenderService {
     });
   }
 
-  async findAll() {
+  async findAll(lenderId?: string) {
     return this.prisma.lender.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        ...(lenderId && { id: lenderId }),
+      },
       include: {
         _count: {
           select: {
@@ -28,9 +31,15 @@ export class LenderService {
     });
   }
 
-  async findOne(id: string) {
-    const lender = await this.prisma.lender.findUnique({
-      where: { id },
+  async findOne(id: string, lenderId?: string) {
+    if (lenderId && id !== lenderId) {
+      throw new NotFoundException(`Lender with ID ${id} not found`);
+    }
+
+    const lender = await this.prisma.lender.findFirst({
+      where: {
+        id,
+      },
       include: {
         _count: {
           select: {
@@ -49,8 +58,8 @@ export class LenderService {
     return lender;
   }
 
-  async update(id: string, updateLenderDto: UpdateLenderDto) {
-    await this.findOne(id); // Verifica que existe
+  async update(id: string, updateLenderDto: UpdateLenderDto, lenderId?: string) {
+    await this.findOne(id, lenderId);
 
     return this.prisma.lender.update({
       where: { id },
@@ -58,10 +67,9 @@ export class LenderService {
     });
   }
 
-  async remove(id: string) {
-    await this.findOne(id); // Verifica que existe
+  async remove(id: string, lenderId?: string) {
+    await this.findOne(id, lenderId);
 
-    // Soft delete
     return this.prisma.lender.update({
       where: { id },
       data: { isActive: false },

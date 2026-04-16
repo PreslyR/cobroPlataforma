@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -27,7 +27,6 @@ const ClientPickerDialog = dynamic(
 );
 
 type CreateLoanFormShellProps = {
-  lenderId: string;
   initialDate: string;
   dashboardHref: string;
 };
@@ -84,7 +83,6 @@ function toDateInputValue(date: Date) {
 }
 
 export function CreateLoanFormShell({
-  lenderId,
   initialDate,
   dashboardHref,
 }: CreateLoanFormShellProps) {
@@ -167,7 +165,7 @@ export function CreateLoanFormShell({
     }
 
     setClientsState((current) => ({ status: "loading", data: current.data }));
-    const result = await getActiveClients(lenderId);
+    const result = await getActiveClients();
 
     if (!result.ok) {
       setClientsState({
@@ -264,7 +262,6 @@ export function CreateLoanFormShell({
     setSubmitState({ status: "submitting" });
 
     const result = await createLoan({
-      lenderId,
       clientId,
       type: loanType,
       principalAmount: previewPrincipal,
@@ -649,7 +646,7 @@ export function CreateLoanFormShell({
 
           <Link
             className={styles.successLink}
-            href={`/loans/${submitState.data.id}?lenderId=${encodeURIComponent(lenderId)}&date=${encodeURIComponent(startDate)}`}
+            href={`/loans/${submitState.data.id}?date=${encodeURIComponent(startDate)}`}
           >
             Ir al prestamo
           </Link>
@@ -671,6 +668,8 @@ export function CreateLoanFormShell({
     </main>
   );
 }
+
+
 
 
 

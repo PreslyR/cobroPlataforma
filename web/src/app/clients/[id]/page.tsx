@@ -18,6 +18,11 @@ type ClientDetailPageProps = {
   searchParams?: Promise<{
     lenderId?: string | string[];
     date?: string | string[];
+    origin?: string | string[];
+    loanId?: string | string[];
+    loanOrigin?: string | string[];
+    from?: string | string[];
+    to?: string | string[];
   }>;
 };
 
@@ -55,13 +60,36 @@ export default async function ClientDetailPage({
 }: ClientDetailPageProps) {
   const { id } = await params;
   const resolvedSearchParams = (await searchParams) ?? {};
-  const lenderId = getSingleParam(resolvedSearchParams.lenderId);
   const today = toDateInputValue(new Date());
   const date = clampDateInputValue(
     getSingleParam(resolvedSearchParams.date) ?? today,
     today,
   );
-  const queryString = buildQueryString({ lenderId, date });
+  const origin = getSingleParam(resolvedSearchParams.origin);
+  const loanId = getSingleParam(resolvedSearchParams.loanId);
+  const loanOrigin = getSingleParam(resolvedSearchParams.loanOrigin);
+  const from = getSingleParam(resolvedSearchParams.from);
+  const to = getSingleParam(resolvedSearchParams.to);
+  const queryString = buildQueryString({ date });
+  const loanDetailQueryString = buildQueryString({
+
+    date,
+    origin: loanOrigin,
+    clientId: id,
+    from,
+    to,
+  });
+  const backHref =
+    origin === "loan-detail" && loanId
+      ? `/loans/${loanId}${loanDetailQueryString}`
+      : `/clients${queryString}`;
+  const backLabel =
+    origin === "loan-detail" && loanId
+      ? "Volver al prestamo"
+      : "Volver a clientes";
+  const secondaryHref =
+    origin === "loan-detail" && loanId ? `/clients${queryString}` : `/portfolio${queryString}`;
+  const secondaryLabel = origin === "loan-detail" && loanId ? "Clientes" : "Cartera";
 
   const clientDebtResult = await getClientDebt({
     clientId: id,
@@ -83,8 +111,8 @@ export default async function ClientDetailPage({
           <div className="rounded-2xl border border-[var(--danger-soft)] bg-[var(--danger-soft)]/60 p-4 text-sm text-[var(--foreground)]">
             {clientDebtResult.error}
           </div>
-          <Link className="inline-link" href={`/clients${queryString}`}>
-            Volver a clientes
+          <Link className="inline-link" href={backHref}>
+            {backLabel}
           </Link>
         </section>
       </main>
@@ -97,12 +125,12 @@ export default async function ClientDetailPage({
   return (
     <main className={`page-shell ${styles.pageShell}`}>
       <ContextHeader
-        backHref={`/clients${queryString}`}
-        backLabel="Volver a clientes"
+        backHref={backHref}
+        backLabel={backLabel}
         title="Cliente"
         subtitle={`C.C. ${client.documentNumber}`}
-        secondaryHref={`/portfolio${queryString}`}
-        secondaryLabel="Cartera"
+        secondaryHref={secondaryHref}
+        secondaryLabel={secondaryLabel}
       />
 
       <ClientDetailHero
@@ -124,7 +152,13 @@ export default async function ClientDetailPage({
         </div>
 
         <form className={styles.controlsForm}>
-          <input type="hidden" name="lenderId" value={lenderId ?? ""} />
+          {origin ? <input type="hidden" name="origin" value={origin} /> : null}
+          {loanId ? <input type="hidden" name="loanId" value={loanId} /> : null}
+          {loanOrigin ? (
+            <input type="hidden" name="loanOrigin" value={loanOrigin} />
+          ) : null}
+          {from ? <input type="hidden" name="from" value={from} /> : null}
+          {to ? <input type="hidden" name="to" value={to} /> : null}
           <label className={styles.controlField}>
             <span className={styles.controlLabel}>Fecha</span>
             <input
@@ -182,7 +216,7 @@ export default async function ClientDetailPage({
                 key={item.loanId}
                 item={item}
                 href={`/loans/${item.loanId}${buildQueryString({
-                  lenderId,
+              
                   date,
                   origin: "client-detail",
                   clientId: id,
@@ -213,7 +247,7 @@ export default async function ClientDetailPage({
                 key={payment.id}
                 item={payment}
                 href={`/loans/${payment.loanId}${buildQueryString({
-                  lenderId,
+              
                   date,
                   origin: "client-detail",
                   clientId: id,
@@ -273,7 +307,7 @@ export default async function ClientDetailPage({
                   <Link
                     className={styles.closedLoanCta}
                     href={`/loans/${loan.loanId}${buildQueryString({
-                      lenderId,
+                  
                       date,
                       origin: "client-detail",
                       clientId: id,
@@ -294,3 +328,6 @@ export default async function ClientDetailPage({
     </main>
   );
 }
+
+
+

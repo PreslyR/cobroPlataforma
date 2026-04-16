@@ -1,11 +1,9 @@
-import {
+﻿import {
   CreatedPaymentResponse,
   PaymentOperationType,
   PaymentSimulationResponse,
 } from "@/features/payments/types";
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api";
+import { fetchBackendFromBrowser } from "@/shared/lib/api/browser-backend";
 
 type Result<T> =
   | { ok: true; data: T }
@@ -29,8 +27,8 @@ export async function simulatePayment(params: {
   }
 
   try {
-    const response = await fetch(
-      `${API_BASE_URL}/payments/simulate/${params.loanId}?${searchParams.toString()}`,
+    const response = await fetchBackendFromBrowser(
+      `/payments/simulate/${params.loanId}?${searchParams.toString()}`,
       {
         method: "GET",
       },
@@ -65,7 +63,7 @@ export async function createPayment(payload: {
   earlySettlementInterestModeOverride?: "FULL_MONTH" | "PRORATED_BY_DAYS";
 }): Promise<Result<CreatedPaymentResponse>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/payments`, {
+    const response = await fetchBackendFromBrowser("/payments", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -100,8 +98,8 @@ async function readErrorMessage(response: Response) {
       ? data.message.join(", ")
       : data.message;
 
-    return message || `El backend respondió con ${response.status}.`;
+    return message || `El backend respondio con ${response.status}.`;
   } catch {
-    return `El backend respondió con ${response.status}.`;
+    return `El backend respondio con ${response.status}.`;
   }
 }

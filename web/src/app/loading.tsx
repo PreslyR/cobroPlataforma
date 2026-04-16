@@ -3,7 +3,13 @@
 export default function Loading() {
   return (
     <main className={`page-shell ${styles.pageShellHome}`}>
-      <section className="panel min-h-[188px] animate-pulse bg-[var(--surface)]" />
+      <section className={styles.homeHeroBand}>
+        <div className="min-h-[136px] animate-pulse rounded-[1.75rem] bg-transparent" />
+      </section>
+
+      <section className={styles.homeHeroSummary}>
+        <div className="panel min-h-[188px] animate-pulse bg-[var(--surface)]" />
+      </section>
 
       <section className="panel animate-pulse bg-[var(--surface)]">
         <div className="grid grid-cols-2 gap-3">

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+﻿import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -22,11 +22,17 @@ export class UsersService {
     const passwordHash = await bcrypt.hash(createUserDto.password, 10);
 
     // Crear usuario
-    const { password, ...userData } = createUserDto;
+    const { password, lenderId, ...userData } = createUserDto;
+
+    if (!lenderId) {
+      throw new BadRequestException('lenderId is required to create a user');
+    }
+
     return this.prisma.user.create({
       data: {
         ...userData,
         passwordHash,
+        lender: { connect: { id: lenderId } },
       },
       select: {
         id: true,
@@ -61,9 +67,12 @@ export class UsersService {
     });
   }
 
-  async findOne(id: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
+  async findOne(id: string, lenderId?: string) {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        id,
+        ...(lenderId && { lenderId }),
+      },
       select: {
         id: true,
         email: true,
@@ -88,8 +97,8 @@ export class UsersService {
     return user;
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto) {
-    await this.findOne(id); // Verifica que existe
+  async update(id: string, updateUserDto: UpdateUserDto, lenderId?: string) {
+    await this.findOne(id, lenderId);
 
     const updateData: any = { ...updateUserDto };
 
@@ -114,8 +123,8 @@ export class UsersService {
     });
   }
 
-  async remove(id: string) {
-    await this.findOne(id); // Verifica que existe
+  async remove(id: string, lenderId?: string) {
+    await this.findOne(id, lenderId);
 
     // Soft delete
     return this.prisma.user.update({

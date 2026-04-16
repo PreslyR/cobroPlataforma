@@ -350,11 +350,15 @@ export class LoansService {
     };
   }
 
-  async findOne(id: string, asOf?: string) {
+  async findOne(id: string, asOf?: string, lenderId?: string) {
+    await this.assertLoanExists(id, lenderId);
     await this.ensureOperationalStateForRead(id, this.parseDateOnlyOrNow(asOf));
 
-    const loan = await this.prisma.loan.findUnique({
-      where: { id },
+    const loan = await this.prisma.loan.findFirst({
+      where: {
+        id,
+        ...(lenderId && { lenderId }),
+      },
       include: {
         lender: {
           select: { id: true, name: true },
@@ -384,8 +388,8 @@ export class LoansService {
     return loan;
   }
 
-  async update(id: string, updateLoanDto: UpdateLoanDto) {
-    await this.assertLoanExists(id);
+  async update(id: string, updateLoanDto: UpdateLoanDto, lenderId?: string) {
+    await this.assertLoanExists(id, lenderId);
 
     const updateData: any = { ...updateLoanDto };
 
@@ -410,8 +414,8 @@ export class LoansService {
     });
   }
 
-  async remove(id: string) {
-    await this.assertLoanExists(id);
+  async remove(id: string, lenderId?: string) {
+    await this.assertLoanExists(id, lenderId);
 
     // Cancelar el préstamo (no eliminarlo físicamente)
     return this.prisma.loan.update({
@@ -421,8 +425,8 @@ export class LoansService {
   }
 
   // Método para obtener el resumen financiero de un préstamo
-  async getLoanSummary(id: string, asOf?: string) {
-    const loan = await this.findOne(id, asOf);
+  async getLoanSummary(id: string, asOf?: string, lenderId?: string) {
+    const loan = await this.findOne(id, asOf, lenderId);
 
     // Calcular totales de intereses
     const totalInterestGenerated = loan.interests.reduce(
@@ -615,7 +619,8 @@ export class LoansService {
     };
   }
 
-  async getDebtBreakdown(id: string, asOf?: string) {
+  async getDebtBreakdown(id: string, asOf?: string, lenderId?: string) {
+    await this.assertLoanExists(id, lenderId);
     const asOfDate = this.parseDateOnlyOrNow(asOf);
     const snapshot = await this.buildLoanDebtSnapshot(id, asOfDate);
 
@@ -636,7 +641,13 @@ export class LoansService {
     };
   }
 
-  async getPayoffPreview(id: string, paymentDate?: string, mode?: string) {
+  async getPayoffPreview(
+    id: string,
+    paymentDate?: string,
+    mode?: string,
+    lenderId?: string,
+  ) {
+    await this.assertLoanExists(id, lenderId);
     const asOfDate = this.parseDateOnlyOrNow(paymentDate);
     const snapshot = await this.buildLoanDebtSnapshot(id, asOfDate);
     const modeUsed =
@@ -1138,9 +1149,12 @@ export class LoansService {
     throw new BadRequestException(`Invalid early settlement mode: ${mode}`);
   }
 
-  private async assertLoanExists(id: string) {
-    const loan = await this.prisma.loan.findUnique({
-      where: { id },
+  private async assertLoanExists(id: string, lenderId?: string) {
+    const loan = await this.prisma.loan.findFirst({
+      where: {
+        id,
+        ...(lenderId && { lenderId }),
+      },
       select: { id: true },
     });
 

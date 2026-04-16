@@ -23,6 +23,21 @@ Regla practica:
 
 Si hay tension entre estos documentos, no improvisar: ajustar el codigo o actualizar la documentacion para que queden alineados.
 
+## Cumplimiento documental para agentes de IA
+Antes de cambiar comportamiento, contratos o validacion, el agente debe revisar los documentos relevantes en este orden:
+1. `AGENTS.md`
+2. `ARCHITECTURE.md`
+3. `spec/contracts.md` si cambia datos, DTOs, responses o significado de campos
+4. `spec/domain.md` si cambia logica de negocio
+5. `spec/validation.md` si cambia cobertura esperada o escenarios criticos
+
+Reglas obligatorias:
+- no asumir que el codigo aislado reemplaza la spec
+- no cambiar comportamiento de negocio sin actualizar `spec/domain.md` cuando aplique
+- no cambiar contratos sin actualizar `spec/contracts.md` cuando aplique
+- no cerrar cambios de negocio sin revisar si `spec/validation.md` debe ajustarse
+- si una regla critica ya esta documentada, el agente debe respetarla o cambiar la documentacion explicitamente junto con el codigo
+
 ## Usuario principal
 - Prestamista / cobrador / administrador del negocio
 - Usa principalmente el celular
@@ -190,4 +205,5 @@ Ante dos opciones, preferir:
 - mobile-first sobre desktop-first
 - backend como fuente de verdad sobre cálculos locales
 - flujo del prestamista sobre features futuras para clientes
+
 

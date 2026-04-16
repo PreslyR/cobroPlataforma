@@ -1,11 +1,10 @@
-import { ClosedLoanItem } from "@/features/reports/components/closed-loan-item";
+﻿import { ClosedLoanItem } from "@/features/reports/components/closed-loan-item";
 import { ReportPaymentItem } from "@/features/reports/components/report-payment-item";
 import { getReportsPageData } from "@/features/reports/lib/api";
 import { formatCurrency, formatLongDate } from "@/shared/lib/format";
 import styles from "./reports.module.css";
 
 type SearchParams = Promise<{
-  lenderId?: string | string[];
   from?: string | string[];
   to?: string | string[];
 }>;
@@ -59,10 +58,6 @@ export default async function ReportsPage({
   searchParams?: SearchParams;
 }) {
   const resolvedSearchParams = (await searchParams) ?? {};
-  const lenderId =
-    getSingleParam(resolvedSearchParams.lenderId) ??
-    process.env.NEXT_PUBLIC_DEFAULT_LENDER_ID ??
-    "";
   const today = new Date();
   const todayInput = toDateInputValue(today);
   const from = clampDateInputValue(
@@ -74,31 +69,13 @@ export default async function ReportsPage({
     todayInput,
   );
   const detailQueryString = buildQueryString({
-    lenderId,
     date: to,
     origin: "reports",
     from,
     to,
   });
 
-  if (!lenderId) {
-    return (
-      <main className={`page-shell ${styles.pageShell}`}>
-        <section className="panel gap-4">
-          <p className="eyebrow">Configuracion inicial</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">
-            Falta definir el prestamista activo.
-          </h1>
-          <p className="text-sm leading-6 text-[var(--muted)]">
-            Para abrir reportes, agrega <code>lenderId</code> en la URL o define
-            <code>NEXT_PUBLIC_DEFAULT_LENDER_ID</code> en <code>web/.env.local</code>.
-          </p>
-        </section>
-      </main>
-    );
-  }
-
-  const reports = await getReportsPageData({ lenderId, from, to });
+  const reports = await getReportsPageData({ from, to });
 
   if (!reports.ok) {
     return (
@@ -183,7 +160,6 @@ export default async function ReportsPage({
         </div>
 
         <form className={styles.controlsForm}>
-          <input type="hidden" name="lenderId" defaultValue={lenderId} />
           <div className={styles.controlBar}>
             <label className={styles.controlField}>
               <span className={styles.controlLabel}>Desde</span>

@@ -10,6 +10,7 @@ It defines what must remain covered and what should be checked before considerin
 2. Manual DB checks are useful, but they do not replace regression coverage.
 3. Domain-critical transitions must have explicit test cases.
 4. A historical example in the database is evidence of past behavior, not proof that the current code still enforces it.
+5. Auth and lender scoping changes are contract changes, not just UI changes.
 
 ## Validation Layers
 
@@ -21,12 +22,15 @@ Use these for:
 - penalty generation
 - interest schedule behavior
 - loan closure criteria
+- auth token resolution and internal user mapping rules when business access depends on them
 
 ### 2. Integration checks
 Use these for:
 - controller to service flow
 - Prisma persistence behavior
 - end-to-end write paths that depend on DB semantics
+- auth guard enforcement on protected endpoints
+- lender scoping through authenticated user context
 
 ### 3. Manual operational validation
 Use this only as a complement.
@@ -34,6 +38,7 @@ Examples:
 - verify a known loan in the DB after a payment
 - compare dashboard output with expected totals
 - confirm a historical scenario still behaves correctly
+- confirm operational pages work without `lenderId` in the URL when a valid session exists
 
 Manual validation is valuable, but it is weaker than codified regression coverage.
 
@@ -67,6 +72,13 @@ These scenarios should remain covered by tests.
 1. read models do not silently own write-side transitions
 2. debt breakdown and payoff preview remain authoritative for the UI
 
+### Auth and tenant scope
+1. protected operational endpoints reject requests without bearer token
+2. token verification rejects invalid issuer, audience, or expired token
+3. authenticated request resolves the internal admin user and lender scope from the token email mapping
+4. a valid Supabase session without internal admin mapping is rejected for operational access
+5. web operational navigation works without `lenderId` in the URL when auth session exists
+
 ## Critical Business Assertions
 The following assertions are important enough that they should always have direct coverage.
 
@@ -75,6 +87,7 @@ The following assertions are important enough that they should always have direc
 3. Penalty, interest, and principal must never collapse into one unlabeled business value.
 4. Early settlement must fail atomically if the amount is insufficient.
 5. Historical reads must not mutate current operational state.
+6. Tenant scope must come from authenticated identity, not from an arbitrary URL parameter.
 
 ## Change Checklist
 Before considering a business change done, verify:
@@ -83,7 +96,7 @@ Before considering a business change done, verify:
 2. The business rule impact is documented in `spec/domain.md` if behavior changed.
 3. Regression coverage exists for the changed rule.
 4. Existing tests still pass.
-5. At least one representative operational path was validated manually when the change affects persistence or reporting.
+5. At least one representative operational path was validated manually when the change affects persistence, auth, or reporting.
 
 ## When Manual Validation Is Not Enough
 Manual validation alone is not enough when:
@@ -92,6 +105,7 @@ Manual validation alone is not enough when:
 - the rule affects penalty generation
 - the rule affects settlement totals
 - the rule affects historical-date behavior
+- the rule affects auth, tenant scoping, or protected-route access
 
 In those cases, automated regression tests are required.
 

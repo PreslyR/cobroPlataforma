@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,9 +8,158 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// ===================================
-// ENUMS
-// ===================================
+model Lender {
+  id        String   @id @default(uuid())
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  clients   Client[]
+  loans     Loan[]
+  users     User[]
+
+  @@map("lenders")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  role         UserRole
+  lenderId     String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  client       Client?
+  lender       Lender   @relation(fields: [lenderId], references: [id])
+
+  @@map("users")
+}
+
+model Client {
+  id             String    @id @default(uuid())
+  lenderId       String
+  userId         String?   @unique
+  fullName       String
+  documentNumber String
+  phone          String?
+  address        String?
+  notes          String?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  lender         Lender    @relation(fields: [lenderId], references: [id])
+  user           User?     @relation(fields: [userId], references: [id])
+  loans          Loan[]
+  payments       Payment[]
+
+  @@index([lenderId, isActive])
+  @@map("clients")
+}
+
+model Loan {
+  id                          String                      @id @default(uuid())
+  lenderId                    String
+  clientId                    String
+  type                        LoanType
+  principalAmount             Float
+  currentPrincipal            Float
+  monthlyInterestRate         Float?
+  installmentAmount           Float?
+  totalInstallments           Int?
+  paymentFrequency            PaymentFrequency
+  startDate                   DateTime
+  expectedEndDate             DateTime?
+  status                      LoanStatus                  @default(ACTIVE)
+  createdAt                   DateTime                    @default(now())
+  updatedAt                   DateTime                    @updatedAt
+  earlySettlementInterestMode EarlySettlementInterestMode @default(FULL_MONTH)
+  installments                Installment[]
+  interests                   LoanInterest[]
+  penalties                   LoanPenalty[]
+  client                      Client                      @relation(fields: [clientId], references: [id])
+  lender                      Lender                      @relation(fields: [lenderId], references: [id])
+  payments                    Payment[]
+
+  @@index([lenderId, status])
+  @@index([lenderId, status, type])
+  @@index([clientId, status])
+  @@map("loans")
+}
+
+model LoanInterest {
+  id              String   @id @default(uuid())
+  loanId          String
+  periodStartDate DateTime
+  periodEndDate   DateTime
+  interestAmount  Float
+  interestPaid    Float    @default(0)
+  interestPending Float
+  createdAt       DateTime @default(now())
+  loan            Loan     @relation(fields: [loanId], references: [id])
+
+  @@index([loanId, periodStartDate])
+  @@index([loanId, periodEndDate])
+  @@index([loanId, periodStartDate, interestPaid])
+  @@map("loan_interests")
+}
+
+model LoanPenalty {
+  id              String       @id @default(uuid())
+  loanId          String
+  daysLate        Int
+  penaltyAmount   Float
+  wasCharged      Boolean      @default(false)
+  calculatedAt    DateTime     @default(now())
+  installmentId   String?
+  periodEndDate   DateTime?
+  periodStartDate DateTime?
+  installment     Installment? @relation(fields: [installmentId], references: [id])
+  loan            Loan         @relation(fields: [loanId], references: [id])
+
+  @@index([loanId, wasCharged, periodEndDate])
+  @@index([loanId, installmentId, wasCharged, periodEndDate])
+  @@index([loanId, periodStartDate, periodEndDate])
+  @@index([installmentId, periodEndDate])
+  @@map("loan_penalties")
+}
+
+model Payment {
+  id                              String                       @id @default(uuid())
+  loanId                          String
+  clientId                        String
+  totalAmount                     Float
+  appliedToInterest               Float                        @default(0)
+  appliedToPrincipal              Float                        @default(0)
+  appliedToPenalty                Float                        @default(0)
+  paymentDate                     DateTime                     @default(now())
+  createdAt                       DateTime                     @default(now())
+  earlySettlementInterestModeUsed EarlySettlementInterestMode?
+  interestDaysCharged             Int?
+  isEarlySettlement               Boolean                      @default(false)
+  client                          Client                       @relation(fields: [clientId], references: [id])
+  loan                            Loan                         @relation(fields: [loanId], references: [id])
+
+  @@index([loanId, paymentDate])
+  @@index([clientId, paymentDate])
+  @@index([paymentDate])
+  @@map("payments")
+}
+
+model Installment {
+  id                String            @id @default(uuid())
+  loanId            String
+  installmentNumber Int
+  dueDate           DateTime
+  amount            Float
+  status            InstallmentStatus @default(PENDING)
+  loan              Loan              @relation(fields: [loanId], references: [id])
+  penalties         LoanPenalty[]
+
+  @@index([loanId, installmentNumber])
+  @@index([loanId, status, dueDate])
+  @@map("installments")
+}
 
 enum UserRole {
   ADMIN
@@ -50,193 +196,3 @@ enum EarlySettlementInterestMode {
   FULL_MONTH
   PRORATED_BY_DAYS
 }
-
-// ===================================
-// MODELS
-// ===================================
-
-// 1️⃣ PRESTAMISTA (Lender)
-// Representa a cada negocio / administrador principal
-model Lender {
-  id        String   @id @default(uuid())
-  name      String
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relaciones
-  users   User[]
-  clients Client[]
-  loans   Loan[]
-
-  @@map("lenders")
-}
-
-// 2️⃣ USUARIO (User)
-// Admins y clientes comparten tabla, se diferencian por rol
-model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  passwordHash String
-  role         UserRole
-  lenderId     String
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  // Relaciones
-  lender Lender   @relation(fields: [lenderId], references: [id])
-  client Client?
-
-  @@map("users")
-}
-
-// 3️⃣ CLIENTE (Client)
-// Perfil financiero del cliente (separado del login)
-model Client {
-  id             String   @id @default(uuid())
-  lenderId       String
-  userId         String?  @unique
-  fullName       String
-  documentNumber String
-  phone          String?
-  address        String?
-  notes          String?
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  // Relaciones
-  lender   Lender    @relation(fields: [lenderId], references: [id])
-  user     User?     @relation(fields: [userId], references: [id])
-  loans    Loan[]
-  payments Payment[]
-
-  @@index([lenderId, isActive])
-  @@map("clients")
-}
-
-// 4️⃣ PRÉSTAMO (Loan)
-// Entidad central del sistema
-model Loan {
-  id                  String           @id @default(uuid())
-  lenderId            String
-  clientId            String
-  type                LoanType
-  principalAmount     Float // capital inicial
-  currentPrincipal    Float // capital pendiente
-  monthlyInterestRate Float? // nullable, depende del tipo
-  installmentAmount   Float? // nullable, solo para FIXED_INSTALLMENTS
-  totalInstallments   Int? // nullable, solo para FIXED_INSTALLMENTS
-  paymentFrequency    PaymentFrequency
-  earlySettlementInterestMode EarlySettlementInterestMode @default(FULL_MONTH)
-  startDate           DateTime
-  expectedEndDate     DateTime?
-  status              LoanStatus       @default(ACTIVE)
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
-
-  // Relaciones
-  lender        Lender         @relation(fields: [lenderId], references: [id])
-  client        Client         @relation(fields: [clientId], references: [id])
-  interests     LoanInterest[]
-  penalties     LoanPenalty[]
-  payments      Payment[]
-  installments  Installment[]
-
-  @@index([lenderId, status])
-  @@index([lenderId, status, type])
-  @@index([clientId, status])
-  @@map("loans")
-}
-
-// 5️⃣ INTERESES GENERADOS (LoanInterest)
-// Intereses por período, NO capitalizan
-model LoanInterest {
-  id              String   @id @default(uuid())
-  loanId          String
-  periodStartDate DateTime
-  periodEndDate   DateTime
-  interestAmount  Float // interés generado
-  interestPaid    Float    @default(0) // interés cubierto
-  interestPending Float // interestAmount - interestPaid
-  createdAt       DateTime @default(now())
-
-  // Relaciones
-  loan Loan @relation(fields: [loanId], references: [id])
-
-  @@index([loanId, periodStartDate])
-  @@index([loanId, periodEndDate])
-  @@index([loanId, periodStartDate, interestPaid])
-  @@map("loan_interests")
-}
-
-// 6️⃣ MORA (LoanPenalty)
-// Se maneja explícitamente, no automática
-model LoanPenalty {
-  id              String   @id @default(uuid())
-  loanId          String
-  installmentId   String?
-  daysLate        Int
-  penaltyAmount   Float
-  wasCharged      Boolean  @default(false)
-  periodStartDate DateTime?
-  periodEndDate   DateTime?
-  calculatedAt    DateTime @default(now())
-
-  // Relaciones
-  loan        Loan         @relation(fields: [loanId], references: [id])
-  installment Installment? @relation(fields: [installmentId], references: [id])
-
-  @@index([loanId, wasCharged, periodEndDate])
-  @@index([loanId, installmentId, wasCharged, periodEndDate])
-  @@index([loanId, periodStartDate, periodEndDate])
-  @@index([installmentId, periodEndDate])
-  @@map("loan_penalties")
-}
-
-// 7️⃣ PAGO (Payment)
-// Evento financiero puro - el backend decide cómo se distribuye
-model Payment {
-  id                 String   @id @default(uuid())
-  loanId             String
-  clientId           String
-  totalAmount        Float
-  appliedToInterest  Float    @default(0)
-  appliedToPrincipal Float    @default(0)
-  appliedToPenalty   Float    @default(0)
-  isEarlySettlement  Boolean  @default(false)
-  earlySettlementInterestModeUsed EarlySettlementInterestMode?
-  interestDaysCharged Int?
-  paymentDate        DateTime @default(now())
-  createdAt          DateTime @default(now())
-
-  // Relaciones
-  loan   Loan   @relation(fields: [loanId], references: [id])
-  client Client @relation(fields: [clientId], references: [id])
-
-  @@index([loanId, paymentDate])
-  @@index([clientId, paymentDate])
-  @@index([paymentDate])
-  @@map("payments")
-}
-
-// 8️⃣ CUOTAS (Installment)
-// Solo se usa para FIXED_INSTALLMENTS
-model Installment {
-  id                String            @id @default(uuid())
-  loanId            String
-  installmentNumber Int
-  dueDate           DateTime
-  amount            Float
-  status            InstallmentStatus @default(PENDING)
-
-  // Relaciones
-  loan      Loan          @relation(fields: [loanId], references: [id])
-  penalties LoanPenalty[]
-
-  @@index([loanId, installmentNumber])
-  @@index([loanId, status, dueDate])
-  @@map("installments")
-}
-

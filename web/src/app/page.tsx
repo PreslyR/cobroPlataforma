@@ -6,7 +6,6 @@ import styles from "./home.module.css";
 
 type SearchParams = Promise<{
   date?: string | string[];
-  lenderId?: string | string[];
 }>;
 
 function getSingleParam(value?: string | string[]) {
@@ -43,39 +42,14 @@ export default async function Home({
   searchParams?: SearchParams;
 }) {
   const resolvedSearchParams = (await searchParams) ?? {};
-  const lenderId =
-    getSingleParam(resolvedSearchParams.lenderId) ??
-    process.env.NEXT_PUBLIC_DEFAULT_LENDER_ID ??
-    "";
   const today = toDateInputValue(new Date());
   const date = clampDateInputValue(
     getSingleParam(resolvedSearchParams.date) ?? today,
     today,
   );
-  const queryString = buildQueryString({ lenderId, date });
+  const queryString = buildQueryString({ date });
 
-  if (!lenderId) {
-    return (
-      <main className="page-shell">
-        <section className="panel gap-4">
-          <p className="eyebrow">Configuracion inicial</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">
-            Falta definir el prestamista activo.
-          </h1>
-          <p className="text-sm leading-6 text-[var(--muted)]">
-            Para probar el Dashboard, agrega <code>lenderId</code> en la URL o
-            define <code>NEXT_PUBLIC_DEFAULT_LENDER_ID</code> en{" "}
-            <code>web/.env.local</code>.
-          </p>
-          <div className="rounded-2xl border border-dashed border-[var(--line)] bg-[var(--surface-strong)]/70 p-4 font-mono text-sm text-[var(--foreground)]">
-            /?lenderId=uuid-del-prestamista&amp;date=2026-03-31
-          </div>
-        </section>
-      </main>
-    );
-  }
-
-  const dashboard = await getDashboardToday({ lenderId, date });
+  const dashboard = await getDashboardToday({ date });
 
   if (!dashboard.ok) {
     return (
@@ -87,8 +61,8 @@ export default async function Home({
           </h1>
           <p className="text-sm leading-6 text-[var(--muted)]">
             Verifica que el backend este corriendo en{" "}
-            <code>{dashboard.meta.baseUrl}</code> y que el prestamista tenga
-            datos operativos.
+            <code>{dashboard.meta.baseUrl}</code> y que tu sesion tenga un usuario
+            interno valido.
           </p>
           <div className="rounded-2xl border border-[var(--danger-soft)] bg-[var(--danger-soft)]/60 p-4 text-sm text-[var(--foreground)]">
             {dashboard.error}
@@ -102,12 +76,57 @@ export default async function Home({
 
   return (
     <main className={`page-shell ${styles.pageShellHome}`} id="top">
-      <section className={styles.homeHero}>
-        <div className={styles.homeHeroCopy}>
-          <h1 className={styles.homeTitle}>
-            Hola{dashboard.data.lenderName ? `, ${dashboard.data.lenderName}` : ""}
-          </h1>
-          <p className={styles.homeSubtitle}>Cobrable hoy y cartera por atender.</p>
+      <section className={styles.homeHeroBand}>
+        <div className={styles.homeHero}>
+          <div className={styles.homeHeroCopy}>
+            <h1 className={styles.homeTitle}>
+              Hola{dashboard.data.lenderName ? `, ${dashboard.data.lenderName}` : ""}
+            </h1>
+            <p className={styles.homeSubtitle}>
+              Cobrable hoy y cartera por atender.
+            </p>
+          </div>
+
+          <div className={styles.homeHeroAccent} aria-hidden="true">
+            <span
+              className={`${styles.homeHeroAccentStroke} ${styles.homeHeroAccentStrokeBrand}`}
+            />
+            <span
+              className={`${styles.homeHeroAccentStroke} ${styles.homeHeroAccentStrokeSun}`}
+            />
+            <span
+              className={`${styles.homeHeroAccentStroke} ${styles.homeHeroAccentStrokeSky}`}
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className={styles.homeHeroSummary}>
+        <div className={styles.homeFloatingDateCard}>
+          <div className={styles.homeFloatingDateIconWrap} aria-hidden="true">
+            <span className={styles.homeFloatingDateIconCore}>
+              <svg
+                className={styles.homeFloatingDateIcon}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="3.5" y="5" width="17" height="15" rx="3" />
+                <path d="M8 3.5v3" />
+                <path d="M16 3.5v3" />
+                <path d="M3.5 9.5h17" />
+              </svg>
+            </span>
+          </div>
+          <div className={styles.homeFloatingDateCopy}>
+            <p className={styles.homeFloatingDateLabel}>Fecha de corte</p>
+            <p className={styles.homeFloatingDateValue}>
+              {formatLongDate(dashboard.data.date)}
+            </p>
+          </div>
         </div>
 
         <div className={styles.homeHeroBalance}>
@@ -121,24 +140,6 @@ export default async function Home({
               {formatCurrency(summary.overdueAmount)}
             </p>
           </div>
-          <div className={styles.homeHeroDateCard}>
-            <p className={styles.homeHeroDateLabel}>Fecha de corte</p>
-            <p className={styles.homeHeroDateValue}>
-              {formatLongDate(dashboard.data.date)}
-            </p>
-          </div>
-        </div>
-
-        <div className={styles.homeHeroAccent} aria-hidden="true">
-          <span
-            className={`${styles.homeHeroAccentStroke} ${styles.homeHeroAccentStrokeBrand}`}
-          />
-          <span
-            className={`${styles.homeHeroAccentStroke} ${styles.homeHeroAccentStrokeSun}`}
-          />
-          <span
-            className={`${styles.homeHeroAccentStroke} ${styles.homeHeroAccentStrokeSky}`}
-          />
         </div>
       </section>
 
@@ -204,7 +205,6 @@ export default async function Home({
         </div>
 
         <form className={styles.homeToolbarGrid}>
-          <input type="hidden" name="lenderId" value={lenderId} />
           <label className={styles.homeControlField}>
             <span className={styles.homeControlLabel}>Fecha de corte</span>
             <input
@@ -240,7 +240,6 @@ export default async function Home({
                 item={item}
                 kind="dueToday"
                 href={`/loans/${item.loanId}${buildQueryString({
-                  lenderId,
                   date,
                   origin: "dashboard",
                   clientId: item.clientId,
@@ -272,7 +271,6 @@ export default async function Home({
                 item={item}
                 kind="overdue"
                 href={`/loans/${item.loanId}${buildQueryString({
-                  lenderId,
                   date,
                   origin: "dashboard",
                   clientId: item.clientId,
@@ -289,4 +287,3 @@ export default async function Home({
     </main>
   );
 }
-

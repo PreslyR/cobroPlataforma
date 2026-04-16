@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { ReactNode, useLayoutEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -70,12 +70,6 @@ export function PersistentRootShell({
     return <>{children}</>;
   }
 
-  const lenderId = searchParams.get("lenderId") ?? "";
-
-  if (!lenderId) {
-    return <>{children}</>;
-  }
-
   const today = toDateInputValue(new Date());
   const routeDate = clampDateInputValue(
     searchParams.get("date") ?? searchParams.get("to") ?? today,
@@ -89,9 +83,8 @@ export function PersistentRootShell({
     searchParams.get("to") ?? routeDate,
     today,
   );
-  const baseQueryString = buildQueryString({ lenderId, date: routeDate });
+  const baseQueryString = buildQueryString({ date: routeDate });
   const reportsQueryString = buildQueryString({
-    lenderId,
     from: reportsFrom,
     to: reportsTo,
   });
@@ -128,8 +121,8 @@ export function PersistentRootShell({
     <AppShell
       activeItem={activeItem}
       navItems={navItems}
+      mobileHeaderTone={activeItem === "dashboard" ? "home" : "default"}
       paymentHref={`/payments/new${buildQueryString({
-        lenderId,
         date: routeDate,
         origin: "global-payment",
         from: pathname === "/reports" ? reportsFrom : undefined,

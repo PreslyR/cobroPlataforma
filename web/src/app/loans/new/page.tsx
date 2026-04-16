@@ -1,9 +1,6 @@
-import Link from "next/link";
-import { CreateLoanFormShell } from "@/features/loans/components/create-loan-form-shell";
-import styles from "./new-loan.module.css";
+﻿import { CreateLoanFormShell } from "@/features/loans/components/create-loan-form-shell";
 
 type SearchParams = Promise<{
-  lenderId?: string | string[];
   date?: string | string[];
 }>;
 
@@ -37,38 +34,13 @@ export default async function NewLoanPage({
   searchParams?: SearchParams;
 }) {
   const resolvedSearchParams = (await searchParams) ?? {};
-  const lenderId =
-    getSingleParam(resolvedSearchParams.lenderId) ??
-    process.env.NEXT_PUBLIC_DEFAULT_LENDER_ID ??
-    "";
   const date =
     getSingleParam(resolvedSearchParams.date) ??
     toDateInputValue(new Date());
-  const dashboardHref = `/${buildQueryString({ lenderId, date })}`;
-
-  if (!lenderId) {
-    return (
-      <main className={`page-shell ${styles.pageShell}`}>
-        <section className="panel gap-4">
-          <p className="eyebrow">Nuevo prestamo</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">
-            Falta definir el prestamista activo.
-          </h1>
-          <p className="text-sm leading-6 text-[var(--muted)]">
-            Agrega <code>lenderId</code> en la URL o define{" "}
-            <code>NEXT_PUBLIC_DEFAULT_LENDER_ID</code> en <code>web/.env.local</code>.
-          </p>
-          <Link className="inline-link" href="/">
-            Volver al dashboard
-          </Link>
-        </section>
-      </main>
-    );
-  }
+  const dashboardHref = `/${buildQueryString({ date })}`;
 
   return (
     <CreateLoanFormShell
-      lenderId={lenderId}
       initialDate={date}
       dashboardHref={dashboardHref}
     />

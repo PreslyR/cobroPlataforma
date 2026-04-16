@@ -16,7 +16,8 @@ import {
 
 export class CreateLoanDto {
   @IsString()
-  lenderId: string;
+  @IsOptional()
+  lenderId?: string;
 
   @IsString()
   clientId: string;

@@ -1,4 +1,6 @@
 import { Controller, Get, Query } from '@nestjs/common';
+import { CurrentAuthUser } from '../auth/current-auth-user.decorator';
+import { AuthenticatedAppUser } from '../auth/auth.types';
 import { ReportsService } from './reports.service';
 
 @Controller('reports')
@@ -7,56 +9,56 @@ export class ReportsController {
 
   @Get('interest-income')
   getInterestIncome(
+    @CurrentAuthUser() authUser: AuthenticatedAppUser,
     @Query('from') from?: string,
     @Query('to') to?: string,
-    @Query('lenderId') lenderId?: string,
   ) {
-    return this.reportsService.getInterestIncome(from, to, lenderId);
+    return this.reportsService.getInterestIncome(from, to, authUser.lenderId);
   }
 
   @Get('penalty-income')
   getPenaltyIncome(
+    @CurrentAuthUser() authUser: AuthenticatedAppUser,
     @Query('from') from?: string,
     @Query('to') to?: string,
-    @Query('lenderId') lenderId?: string,
   ) {
-    return this.reportsService.getPenaltyIncome(from, to, lenderId);
+    return this.reportsService.getPenaltyIncome(from, to, authUser.lenderId);
   }
 
   @Get('portfolio-summary')
   getPortfolioSummary(
+    @CurrentAuthUser() authUser: AuthenticatedAppUser,
     @Query('asOf') asOf?: string,
-    @Query('lenderId') lenderId?: string,
   ) {
-    return this.reportsService.getPortfolioSummary(asOf, lenderId);
+    return this.reportsService.getPortfolioSummary(asOf, authUser.lenderId);
   }
 
   @Get('payments-history')
   getPaymentsHistory(
+    @CurrentAuthUser() authUser: AuthenticatedAppUser,
     @Query('from') from?: string,
     @Query('to') to?: string,
-    @Query('lenderId') lenderId?: string,
     @Query('limit') limit?: string,
   ) {
     return this.reportsService.getPaymentsHistory(
       from,
       to,
-      lenderId,
+      authUser.lenderId,
       this.parseLimit(limit),
     );
   }
 
   @Get('closed-loans')
   getClosedLoans(
+    @CurrentAuthUser() authUser: AuthenticatedAppUser,
     @Query('from') from?: string,
     @Query('to') to?: string,
-    @Query('lenderId') lenderId?: string,
     @Query('limit') limit?: string,
   ) {
     return this.reportsService.getClosedLoans(
       from,
       to,
-      lenderId,
+      authUser.lenderId,
       this.parseLimit(limit),
     );
   }

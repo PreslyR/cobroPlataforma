@@ -1,30 +1,26 @@
-import { ActiveClientOption, CreateLoanResponse } from "@/features/loans/types";
-
-const API_BASE_URL =
-  process.env.API_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  "http://localhost:3000/api";
+﻿import { ActiveClientOption, CreateLoanResponse } from "@/features/loans/types";
+import {
+  fetchBackendFromBrowser,
+  getBrowserBackendBaseUrl,
+} from "@/shared/lib/api/browser-backend";
 
 type Result<T> =
   | { ok: true; data: T }
   | { ok: false; error: string; meta?: { baseUrl: string } };
 
-export async function getActiveClients(
-  lenderId: string,
-): Promise<Result<ActiveClientOption[]>> {
+export async function getActiveClients(): Promise<Result<ActiveClientOption[]>> {
+  const baseUrl = getBrowserBackendBaseUrl();
+
   try {
-    const response = await fetch(
-      `${API_BASE_URL}/clients?lenderId=${encodeURIComponent(lenderId)}`,
-      {
-        cache: "no-store",
-      },
-    );
+    const response = await fetchBackendFromBrowser("/clients", {
+      cache: "no-store",
+    });
 
     if (!response.ok) {
       return {
         ok: false,
         error: `El backend respondio con ${response.status}.`,
-        meta: { baseUrl: API_BASE_URL },
+        meta: { baseUrl },
       };
     }
 
@@ -51,13 +47,12 @@ export async function getActiveClients(
         error instanceof Error
           ? error.message
           : "No se pudo conectar con el backend.",
-      meta: { baseUrl: API_BASE_URL },
+      meta: { baseUrl },
     };
   }
 }
 
 export async function createLoan(payload: {
-  lenderId: string;
   clientId: string;
   type: "FIXED_INSTALLMENTS" | "MONTHLY_INTEREST";
   principalAmount: number;
@@ -70,7 +65,7 @@ export async function createLoan(payload: {
   expectedEndDate?: string;
 }): Promise<Result<CreateLoanResponse>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/loans`, {
+    const response = await fetchBackendFromBrowser("/loans", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -8,7 +8,6 @@ import { ContextHeader } from "@/shared/components/context-header";
 
 type SearchParams = Promise<{
   loanId?: string | string[];
-  lenderId?: string | string[];
   date?: string | string[];
   mode?: string | string[];
   search?: string | string[];
@@ -53,7 +52,6 @@ export default async function NewPaymentPage({
 }) {
   const resolvedSearchParams = (await searchParams) ?? {};
   const loanId = getSingleParam(resolvedSearchParams.loanId);
-  const lenderId = getSingleParam(resolvedSearchParams.lenderId);
   const today = toDateInputValue(new Date());
   const date = clampDateInputValue(
     getSingleParam(resolvedSearchParams.date) ?? today,
@@ -65,9 +63,8 @@ export default async function NewPaymentPage({
   const clientId = getSingleParam(resolvedSearchParams.clientId);
   const from = getSingleParam(resolvedSearchParams.from);
   const to = getSingleParam(resolvedSearchParams.to);
-  const dashboardHref = `/${buildQueryString({ lenderId, date })}`;
+  const dashboardHref = `/${buildQueryString({ date })}`;
   const selectionHref = `/payments/new${buildQueryString({
-    lenderId,
     date,
     origin,
     clientId,
@@ -76,40 +73,17 @@ export default async function NewPaymentPage({
   })}`;
 
   if (!loanId) {
-    if (!lenderId) {
-      return (
-        <main className="page-shell">
-          <section className="panel gap-4">
-            <p className="eyebrow">Registrar pago</p>
-            <h1 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">
-              Falta definir el prestamista activo.
-            </h1>
-            <p className="text-sm leading-6 text-[var(--muted)]">
-              Agrega <code>lenderId</code> en la URL o define el prestamista por
-              defecto para poder seleccionar un prestamo.
-            </p>
-            <Link className="inline-link" href={dashboardHref}>
-              Volver al inicio
-            </Link>
-          </section>
-        </main>
-      );
-    }
-
     const [dueTodayResult, overdueResult, searchResult] = await Promise.all([
       getPortfolio({
-        lenderId,
         date,
         status: "DUE_TODAY",
       }),
       getPortfolio({
-        lenderId,
         date,
         status: "OVERDUE",
       }),
       search
         ? getPortfolio({
-            lenderId,
             date,
             search,
           })
@@ -187,7 +161,6 @@ export default async function NewPaymentPage({
 
     const selectionQuery = (selectedLoanId: string) =>
       buildQueryString({
-        lenderId,
         date,
         loanId: selectedLoanId,
         origin,
@@ -203,7 +176,7 @@ export default async function NewPaymentPage({
           backLabel="Volver al inicio"
           title="Registrar pago"
           subtitle={`Seleccion por fecha ${date}`}
-          secondaryHref={`/portfolio${buildQueryString({ lenderId, date })}`}
+          secondaryHref={`/portfolio${buildQueryString({ date })}`}
           secondaryLabel="Cartera"
         />
 
@@ -220,7 +193,6 @@ export default async function NewPaymentPage({
           </div>
 
           <form className={styles.controlsForm}>
-            <input type="hidden" name="lenderId" value={lenderId} />
             {origin ? <input type="hidden" name="origin" value={origin} /> : null}
             {clientId ? <input type="hidden" name="clientId" value={clientId} /> : null}
             {from ? <input type="hidden" name="from" value={from} /> : null}
@@ -368,7 +340,6 @@ export default async function NewPaymentPage({
   }
 
   const loanDetailHref = `/loans/${loanId}${buildQueryString({
-    lenderId,
     date,
     origin,
     clientId,

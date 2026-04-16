@@ -1,4 +1,4 @@
-import {
+﻿import {
   ReportClosedLoansResponse,
   ReportInterestIncomeResponse,
   ReportPaymentsHistoryResponse,
@@ -6,6 +6,10 @@ import {
   ReportPortfolioSummaryResponse,
   ReportsPageData,
 } from "@/features/reports/types";
+import {
+  fetchBackendFromServer,
+  getBackendBaseUrl,
+} from "@/shared/lib/api/server-backend";
 
 type FetchResult<T> =
   | { ok: true; data: T }
@@ -23,16 +27,12 @@ type ReportsPageResult =
       meta: { baseUrl: string };
     };
 
-const API_BASE_URL =
-  process.env.API_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  "http://localhost:3000/api";
 const READ_REVALIDATE_SECONDS = 10;
 
 async function fetchJson<T>(path: string): Promise<FetchResult<T>> {
   try {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
-      next: { revalidate: READ_REVALIDATE_SECONDS },
+    const response = await fetchBackendFromServer(path, {
+      revalidate: READ_REVALIDATE_SECONDS,
     });
 
     if (!response.ok) {
@@ -58,16 +58,14 @@ async function fetchJson<T>(path: string): Promise<FetchResult<T>> {
 }
 
 export async function getReportsPageData({
-  lenderId,
   from,
   to,
 }: {
-  lenderId: string;
   from: string;
   to: string;
 }): Promise<ReportsPageResult> {
+  const baseUrl = getBackendBaseUrl();
   const rangeParams = new URLSearchParams({
-    lenderId,
     from,
     to,
   });
@@ -81,9 +79,7 @@ export async function getReportsPageData({
         `/reports/penalty-income?${rangeParams.toString()}`,
       ),
       fetchJson<ReportPortfolioSummaryResponse>(
-        `/reports/portfolio-summary?asOf=${encodeURIComponent(
-          to,
-        )}&lenderId=${encodeURIComponent(lenderId)}`,
+        `/reports/portfolio-summary?asOf=${encodeURIComponent(to)}`,
       ),
       fetchJson<ReportPaymentsHistoryResponse>(
         `/reports/payments-history?${rangeParams.toString()}&limit=20`,
@@ -97,7 +93,7 @@ export async function getReportsPageData({
     return {
       ok: false,
       error: interestIncome.error,
-      meta: { baseUrl: API_BASE_URL },
+      meta: { baseUrl },
     };
   }
 
@@ -105,7 +101,7 @@ export async function getReportsPageData({
     return {
       ok: false,
       error: penaltyIncome.error,
-      meta: { baseUrl: API_BASE_URL },
+      meta: { baseUrl },
     };
   }
 
@@ -113,7 +109,7 @@ export async function getReportsPageData({
     return {
       ok: false,
       error: portfolioSummary.error,
-      meta: { baseUrl: API_BASE_URL },
+      meta: { baseUrl },
     };
   }
 
@@ -121,7 +117,7 @@ export async function getReportsPageData({
     return {
       ok: false,
       error: paymentsHistory.error,
-      meta: { baseUrl: API_BASE_URL },
+      meta: { baseUrl },
     };
   }
 
@@ -129,7 +125,7 @@ export async function getReportsPageData({
     return {
       ok: false,
       error: closedLoans.error,
-      meta: { baseUrl: API_BASE_URL },
+      meta: { baseUrl },
     };
   }
 
@@ -142,6 +138,6 @@ export async function getReportsPageData({
       paymentsHistory: paymentsHistory.data,
       closedLoans: closedLoans.data,
     },
-    meta: { baseUrl: API_BASE_URL },
+    meta: { baseUrl },
   };
 }

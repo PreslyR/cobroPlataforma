@@ -13,7 +13,8 @@ export class CreateUserDto {
   role: UserRole;
 
   @IsString()
-  lenderId: string;
+  @IsOptional()
+  lenderId?: string;
 
   @IsOptional()
   isActive?: boolean;

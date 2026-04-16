@@ -1,36 +1,38 @@
-import {
+﻿import {
   ClientDebtResponse,
   ClientsPortfolioResponse,
 } from "@/features/clients/types";
+import {
+  fetchBackendFromServer,
+  getBackendBaseUrl,
+} from "@/shared/lib/api/server-backend";
 
 type Result<T> =
   | { ok: true; data: T; meta: { baseUrl: string } }
   | { ok: false; error: string; meta: { baseUrl: string } };
 
-const API_BASE_URL =
-  process.env.API_BASE_URL ??
-  process.env.NEXT_PUBLIC_API_BASE_URL ??
-  "http://localhost:3000/api";
 const READ_REVALIDATE_SECONDS = 5;
 
 async function fetchJson<T>(path: string): Promise<Result<T>> {
+  const baseUrl = getBackendBaseUrl();
+
   try {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
-      next: { revalidate: READ_REVALIDATE_SECONDS },
+    const response = await fetchBackendFromServer(path, {
+      revalidate: READ_REVALIDATE_SECONDS,
     });
 
     if (!response.ok) {
       return {
         ok: false,
         error: `El backend respondio con ${response.status}.`,
-        meta: { baseUrl: API_BASE_URL },
+        meta: { baseUrl },
       };
     }
 
     return {
       ok: true,
       data: (await response.json()) as T,
-      meta: { baseUrl: API_BASE_URL },
+      meta: { baseUrl },
     };
   } catch (error) {
     return {
@@ -39,21 +41,19 @@ async function fetchJson<T>(path: string): Promise<Result<T>> {
         error instanceof Error
           ? error.message
           : "No se pudo conectar con el backend.",
-      meta: { baseUrl: API_BASE_URL },
+      meta: { baseUrl },
     };
   }
 }
 
 export async function getClientsPortfolio({
-  lenderId,
   asOf,
   search,
 }: {
-  lenderId: string;
   asOf?: string;
   search?: string;
 }) {
-  const searchParams = new URLSearchParams({ lenderId });
+  const searchParams = new URLSearchParams();
 
   if (asOf) {
     searchParams.set("asOf", asOf);
