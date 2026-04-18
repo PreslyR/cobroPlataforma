@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: starter
     rootDir: .
-    buildCommand: npm ci && npm run prisma:generate && npm run back:build
+    buildCommand: npm ci --include=dev && npm run prisma:generate && npm run back:build
     startCommand: npm run start:prod
     healthCheckPath: /api/health
     envVars:
