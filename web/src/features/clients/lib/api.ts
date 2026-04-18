@@ -1,5 +1,6 @@
-﻿import {
+import {
   ClientDebtResponse,
+  ClientIntakeSubmission,
   ClientsPortfolioResponse,
 } from "@/features/clients/types";
 import {
@@ -85,5 +86,16 @@ export async function getClientDebt({
 
   return fetchJson<ClientDebtResponse>(
     `/clients/${clientId}/debt${query ? `?${query}` : ""}`,
+  );
+}
+
+export async function getPendingClientIntakeSubmissions(limit = 50) {
+  const searchParams = new URLSearchParams({
+    status: "PENDING",
+    limit: String(limit),
+  });
+
+  return fetchJson<ClientIntakeSubmission[]>(
+    `/client-intake/submissions?${searchParams.toString()}`,
   );
 }

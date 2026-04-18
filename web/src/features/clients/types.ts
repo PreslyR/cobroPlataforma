@@ -97,3 +97,45 @@ export type ClientDebtResponse = {
     interestDaysCharged: number | null;
   }>;
 };
+
+export type ClientIntakeSubmission = {
+  id: string;
+  lenderId: string;
+  source: "TALLY";
+  sourceEventId: string | null;
+  sourceSubmissionId: string | null;
+  sourceFormId: string | null;
+  sourceFormName: string | null;
+  submittedAt: string;
+  fullName: string;
+  documentNumber: string;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  notes: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  duplicateByDocument: boolean;
+  duplicateByEmail: boolean;
+  duplicateByPhone: boolean;
+  rejectionReason: string | null;
+  approvedAt: string | null;
+  approvedByUserId: string | null;
+  createdClientId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  lender: {
+    id: string;
+    name: string;
+  };
+  approvedBy: {
+    id: string;
+    email: string;
+  } | null;
+  createdClient: {
+    id: string;
+    fullName: string;
+    documentNumber: string;
+    email: string | null;
+    phone: string | null;
+  } | null;
+};
