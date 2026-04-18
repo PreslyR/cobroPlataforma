@@ -72,11 +72,13 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
               `(attempt ${attempt + 1}/${maxAttempts}, wait ${randomizedDelayMs}ms)`,
           );
 
-          try {
-            await this.$disconnect();
-            await this.$connect();
-          } catch {
-            // Ignore reconnect errors here; the next query attempt will surface the final failure if still broken.
+          if (this.shouldReconnectBeforeRetry(error)) {
+            try {
+              await this.$disconnect();
+              await this.$connect();
+            } catch {
+              // Ignore reconnect errors here; the next query attempt will surface the final failure if still broken.
+            }
           }
 
           await this.sleep(randomizedDelayMs);
@@ -121,7 +123,23 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     const message = String(error?.message ?? '').toLowerCase();
     return (
       message.includes("can't reach database server") ||
+      message.includes('max clients reached') ||
+      message.includes('maxclientsinsessionmode') ||
+      message.includes('too many clients') ||
       message.includes('connection') ||
+      message.includes('socket')
+    );
+  }
+
+  private shouldReconnectBeforeRetry(error: any): boolean {
+    const code = error?.code;
+    if (code && this.retryableErrorCodes.has(code)) {
+      return true;
+    }
+
+    const message = String(error?.message ?? '').toLowerCase();
+    return (
+      message.includes("can't reach database server") ||
       message.includes('socket')
     );
   }

@@ -18,7 +18,8 @@ import { InterestCalculationService } from "../payments/services/interest-calcul
 import { PenaltyCalculationService } from "../payments/services/penalty-calculation.service";
 import { measureAsync } from '../common/perf/perf-logger';
 
-const SNAPSHOT_BATCH_SIZE = 4;
+const DEFAULT_SNAPSHOT_CONCURRENCY = 1;
+const MAX_SNAPSHOT_CONCURRENCY = 4;
 
 @Injectable()
 export class LoansService {
@@ -797,40 +798,44 @@ export class LoansService {
       throw new NotFoundException(`Loan with ID ${id} not found`);
     }
 
-    const [pendingPenalties, interests] = await measureAsync(
+    const { pendingPenalties, interests } = await measureAsync(
       this.logger,
       `loans.buildLoanDebtSnapshot(${id}).loadPenaltiesAndInterests`,
-      () =>
-        Promise.all([
-          this.prisma.loanPenalty.findMany({
-            where: {
-              loanId: id,
-              wasCharged: false,
-              OR: [
-                { periodEndDate: null },
-                { periodEndDate: { lte: normalizedAsOfDate } },
-              ],
-            },
-            orderBy: { calculatedAt: "asc" },
-            select: {
-              id: true,
-              penaltyAmount: true,
-              periodEndDate: true,
-            },
-          }),
-          this.prisma.loanInterest.findMany({
-            where: { loanId: id },
-            orderBy: { periodStartDate: "asc" },
-            select: {
-              id: true,
-              periodStartDate: true,
-              periodEndDate: true,
-              interestAmount: true,
-              interestPaid: true,
-              interestPending: true,
-            },
-          }),
-        ]),
+      async () => {
+        const pendingPenalties = await this.prisma.loanPenalty.findMany({
+          where: {
+            loanId: id,
+            wasCharged: false,
+            OR: [
+              { periodEndDate: null },
+              { periodEndDate: { lte: normalizedAsOfDate } },
+            ],
+          },
+          orderBy: { calculatedAt: "asc" },
+          select: {
+            id: true,
+            penaltyAmount: true,
+            periodEndDate: true,
+          },
+        });
+        const interests = await this.prisma.loanInterest.findMany({
+          where: { loanId: id },
+          orderBy: { periodStartDate: "asc" },
+          select: {
+            id: true,
+            periodStartDate: true,
+            periodEndDate: true,
+            interestAmount: true,
+            interestPaid: true,
+            interestPending: true,
+          },
+        });
+
+        return {
+          pendingPenalties,
+          interests,
+        };
+      },
     );
 
     const penaltyPending = this.normalizeMoney(
@@ -883,27 +888,31 @@ export class LoansService {
       overdueInterestRows[0]?.periodEndDate ?? null;
 
     if (loan.type === LoanType.FIXED_INSTALLMENTS) {
-      const [installments, paymentsSummary] = await measureAsync(
+      const { installments, paymentsSummary } = await measureAsync(
         this.logger,
         `loans.buildLoanDebtSnapshot(${id}).loadInstallmentsAndPayments`,
-        () =>
-          Promise.all([
-            this.prisma.installment.findMany({
-              where: { loanId: id },
-              orderBy: { installmentNumber: "asc" },
-              select: {
-                id: true,
-                installmentNumber: true,
-                dueDate: true,
-                amount: true,
-                status: true,
-              },
-            }),
-            this.prisma.payment.aggregate({
-              where: { loanId: id },
-              _sum: { appliedToPrincipal: true, appliedToInterest: true },
-            }),
-          ]),
+        async () => {
+          const installments = await this.prisma.installment.findMany({
+            where: { loanId: id },
+            orderBy: { installmentNumber: "asc" },
+            select: {
+              id: true,
+              installmentNumber: true,
+              dueDate: true,
+              amount: true,
+              status: true,
+            },
+          });
+          const paymentsSummary = await this.prisma.payment.aggregate({
+            where: { loanId: id },
+            _sum: { appliedToPrincipal: true, appliedToInterest: true },
+          });
+
+          return {
+            installments,
+            paymentsSummary,
+          };
+        },
       );
 
       let coveredAmount = this.normalizeMoney(
@@ -1053,10 +1062,11 @@ export class LoansService {
     logLabel: string,
   ) {
     const snapshots = [];
+    const snapshotConcurrency = this.getSnapshotConcurrency();
 
     await measureAsync(this.logger, `${logLabel}.snapshots x${loanIds.length}`, async () => {
-      for (let index = 0; index < loanIds.length; index += SNAPSHOT_BATCH_SIZE) {
-        const batchIds = loanIds.slice(index, index + SNAPSHOT_BATCH_SIZE);
+      for (let index = 0; index < loanIds.length; index += snapshotConcurrency) {
+        const batchIds = loanIds.slice(index, index + snapshotConcurrency);
         const batchSnapshots = await Promise.all(
           batchIds.map((loanId) => this.buildLoanDebtSnapshot(loanId, asOfDate)),
         );
@@ -1066,6 +1076,21 @@ export class LoansService {
     });
 
     return snapshots;
+  }
+
+  private getSnapshotConcurrency() {
+    const configuredValue = Number(
+      process.env.LOAN_SNAPSHOT_CONCURRENCY ?? DEFAULT_SNAPSHOT_CONCURRENCY,
+    );
+
+    if (!Number.isFinite(configuredValue)) {
+      return DEFAULT_SNAPSHOT_CONCURRENCY;
+    }
+
+    return Math.max(
+      1,
+      Math.min(Math.floor(configuredValue), MAX_SNAPSHOT_CONCURRENCY),
+    );
   }
 
   private parseDateOnlyOrNow(value?: string): Date {

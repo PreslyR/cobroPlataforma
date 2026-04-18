@@ -19,67 +19,69 @@ export class DashboardService {
     );
     const nextDate = this.addDaysUtc(asOfDate, 1);
 
-    const [lender, activeLoanSnapshotsResult, monthInterestIncome, todayCollections] =
-      await Promise.all([
-        measureAsync(this.logger, 'dashboard.lenderLookup', () =>
-          lenderId
-            ? this.prisma.lender.findUnique({
-                where: { id: lenderId },
-                select: { id: true, name: true },
-              })
-            : Promise.resolve(null),
-        ),
-        measureAsync(this.logger, 'dashboard.activeLoanSnapshots', () =>
-          this.loansService.getActiveLoanSnapshots({
-            asOf: asOfDate,
-            lenderId,
-            logLabel: 'dashboard.activeLoans',
-          }),
-        ),
-        measureAsync(this.logger, 'dashboard.monthInterestIncome', () =>
-          this.prisma.payment.aggregate({
-            where: {
-              paymentDate: {
-                gte: monthStartDate,
-                lt: nextDate,
+    const activeLoanSnapshotsResult = await measureAsync(
+      this.logger,
+      'dashboard.activeLoanSnapshots',
+      () =>
+        this.loansService.getActiveLoanSnapshots({
+          asOf: asOfDate,
+          lenderId,
+          logLabel: 'dashboard.activeLoans',
+        }),
+    );
+    const [lender, monthInterestIncome, todayCollections] = await Promise.all([
+      measureAsync(this.logger, 'dashboard.lenderLookup', () =>
+        lenderId
+          ? this.prisma.lender.findUnique({
+              where: { id: lenderId },
+              select: { id: true, name: true },
+            })
+          : Promise.resolve(null),
+      ),
+      measureAsync(this.logger, 'dashboard.monthInterestIncome', () =>
+        this.prisma.payment.aggregate({
+          where: {
+            paymentDate: {
+              gte: monthStartDate,
+              lt: nextDate,
+            },
+            ...(lenderId && {
+              loan: {
+                lenderId,
               },
-              ...(lenderId && {
-                loan: {
-                  lenderId,
-                },
-              }),
+            }),
+          },
+          _sum: {
+            totalAmount: true,
+            appliedToInterest: true,
+          },
+        }),
+      ),
+      measureAsync(this.logger, 'dashboard.todayCollections', () =>
+        this.prisma.payment.aggregate({
+          where: {
+            paymentDate: {
+              gte: asOfDate,
+              lt: nextDate,
             },
-            _sum: {
-              totalAmount: true,
-              appliedToInterest: true,
-            },
-          }),
-        ),
-        measureAsync(this.logger, 'dashboard.todayCollections', () =>
-          this.prisma.payment.aggregate({
-            where: {
-              paymentDate: {
-                gte: asOfDate,
-                lt: nextDate,
+            ...(lenderId && {
+              loan: {
+                lenderId,
               },
-              ...(lenderId && {
-                loan: {
-                  lenderId,
-                },
-              }),
-            },
-            _sum: {
-              totalAmount: true,
-              appliedToInterest: true,
-              appliedToPenalty: true,
-              appliedToPrincipal: true,
-            },
-            _count: {
-              id: true,
-            },
-          }),
-        ),
-      ]);
+            }),
+          },
+          _sum: {
+            totalAmount: true,
+            appliedToInterest: true,
+            appliedToPenalty: true,
+            appliedToPrincipal: true,
+          },
+          _count: {
+            id: true,
+          },
+        }),
+      ),
+    ]);
 
     const { dueToday, overdue, portfolio } = this.buildDashboardSections(
       activeLoanSnapshotsResult.snapshots,
