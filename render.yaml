@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: cobro-backend
+    runtime: node
+    plan: starter
+    rootDir: .
+    buildCommand: npm ci && npm run prisma:generate && npm run back:build
+    startCommand: npm run start:prod
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_JWT_AUDIENCE
+        value: authenticated
+      - key: TALLY_WEBHOOK_SIGNING_SECRET
+        sync: false
