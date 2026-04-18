@@ -6,6 +6,7 @@ import styles from "./client-detail-hero.module.css";
 type ClientDetailHeroProps = {
   fullName: string;
   documentNumber: string;
+  email: string | null;
   phone: string | null;
   lenderName: string;
   address: string | null;
@@ -16,6 +17,7 @@ type ClientDetailHeroProps = {
 export function ClientDetailHero({
   fullName,
   documentNumber,
+  email,
   phone,
   lenderName,
   address,
@@ -132,6 +134,10 @@ export function ClientDetailHero({
             <div className={styles.sheetRow}>
               <span className={styles.sheetLabel}>Documento</span>
               <strong className={styles.sheetValue}>C.C. {documentNumber}</strong>
+            </div>
+            <div className={styles.sheetRow}>
+              <span className={styles.sheetLabel}>Correo</span>
+              <strong className={styles.sheetValue}>{email || "Sin correo"}</strong>
             </div>
             <div className={styles.sheetRow}>
               <span className={styles.sheetLabel}>Telefono</span>

@@ -9,49 +9,53 @@ datasource db {
 }
 
 model Lender {
-  id        String   @id @default(uuid())
-  name      String
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  clients   Client[]
-  loans     Loan[]
-  users     User[]
+  id                     String                   @id @default(uuid())
+  name                   String
+  isActive               Boolean                  @default(true)
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+  clientIntakeSubmissions ClientIntakeSubmission[]
+  clients                Client[]
+  loans                  Loan[]
+  users                  User[]
 
   @@map("lenders")
 }
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  passwordHash String
-  role         UserRole
-  lenderId     String
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  client       Client?
-  lender       Lender   @relation(fields: [lenderId], references: [id])
+  id                             String                   @id @default(uuid())
+  email                          String                   @unique
+  passwordHash                   String
+  role                           UserRole
+  lenderId                       String
+  isActive                       Boolean                  @default(true)
+  createdAt                      DateTime                 @default(now())
+  updatedAt                      DateTime                 @updatedAt
+  approvedClientIntakeSubmissions ClientIntakeSubmission[] @relation("ClientIntakeApprovedBy")
+  client                         Client?
+  lender                         Lender                   @relation(fields: [lenderId], references: [id])
 
   @@map("users")
 }
 
 model Client {
-  id             String    @id @default(uuid())
-  lenderId       String
-  userId         String?   @unique
-  fullName       String
-  documentNumber String
-  phone          String?
-  address        String?
-  notes          String?
-  isActive       Boolean   @default(true)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  lender         Lender    @relation(fields: [lenderId], references: [id])
-  user           User?     @relation(fields: [userId], references: [id])
-  loans          Loan[]
-  payments       Payment[]
+  id              String                  @id @default(uuid())
+  lenderId        String
+  userId          String?                 @unique
+  fullName        String
+  documentNumber  String
+  phone           String?
+  address         String?
+  notes           String?
+  isActive        Boolean                 @default(true)
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  email           String?
+  intakeSubmission ClientIntakeSubmission? @relation("ClientCreatedFromIntake")
+  lender          Lender                  @relation(fields: [lenderId], references: [id])
+  user            User?                   @relation(fields: [userId], references: [id])
+  loans           Loan[]
+  payments        Payment[]
 
   @@index([lenderId, isActive])
   @@map("clients")
@@ -161,6 +165,43 @@ model Installment {
   @@map("installments")
 }
 
+model ClientIntakeSubmission {
+  id                  String             @id @default(uuid())
+  lenderId            String
+  source              ClientIntakeSource
+  sourceEventId       String?            @unique
+  sourceSubmissionId  String?
+  sourceFormId        String?
+  sourceFormName      String?
+  submittedAt         DateTime
+  fullName            String
+  documentNumber      String
+  email               String?
+  phone               String?
+  address             String?
+  notes               String?
+  rawPayload          Json
+  status              ClientIntakeStatus @default(PENDING)
+  duplicateByDocument Boolean            @default(false)
+  duplicateByEmail    Boolean            @default(false)
+  duplicateByPhone    Boolean            @default(false)
+  rejectionReason     String?
+  approvedAt          DateTime?
+  approvedByUserId    String?
+  createdClientId     String?            @unique
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  approvedBy          User?              @relation("ClientIntakeApprovedBy", fields: [approvedByUserId], references: [id])
+  createdClient       Client?            @relation("ClientCreatedFromIntake", fields: [createdClientId], references: [id])
+  lender              Lender             @relation(fields: [lenderId], references: [id])
+
+  @@index([lenderId, status, submittedAt])
+  @@index([lenderId, documentNumber])
+  @@index([lenderId, email])
+  @@index([lenderId, phone])
+  @@map("client_intake_submissions")
+}
+
 enum UserRole {
   ADMIN
   CLIENT
@@ -195,4 +236,14 @@ enum InstallmentStatus {
 enum EarlySettlementInterestMode {
   FULL_MONTH
   PRORATED_BY_DAYS
+}
+
+enum ClientIntakeSource {
+  TALLY
+}
+
+enum ClientIntakeStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }

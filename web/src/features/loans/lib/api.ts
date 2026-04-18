@@ -33,12 +33,18 @@ export async function getActiveClients(): Promise<Result<ActiveClientOption[]>> 
 
     return {
       ok: true,
-      data: rawClients.map((client) => ({
-        id: client.id,
-        fullName: client.fullName,
-        documentNumber: client.documentNumber,
-        phone: client.phone,
-      })),
+      data: rawClients
+        .map((client) => ({
+          id: client.id,
+          fullName: client.fullName,
+          documentNumber: client.documentNumber,
+          phone: client.phone,
+        }))
+        .sort((left, right) =>
+          left.fullName.localeCompare(right.fullName, "es", {
+            sensitivity: "base",
+          }),
+        ),
     };
   } catch (error) {
     return {

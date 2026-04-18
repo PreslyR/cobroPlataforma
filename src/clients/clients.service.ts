@@ -48,6 +48,9 @@ export class ClientsService {
   async findAll(lenderId?: string) {
     return this.prisma.client.findMany({
       where: lenderId ? { lenderId, isActive: true } : { isActive: true },
+      orderBy: {
+        fullName: 'asc',
+      },
       include: {
         lender: {
           select: {
@@ -165,6 +168,7 @@ export class ClientsService {
           lenderId: true,
           fullName: true,
           documentNumber: true,
+          email: true,
           phone: true,
           loans: {
             where: {
@@ -228,6 +232,7 @@ export class ClientsService {
           lenderId: client.lenderId,
           fullName: client.fullName,
           documentNumber: client.documentNumber,
+          email: client.email,
           phone: client.phone,
           activeLoansCount,
           overdueLoansCount,
@@ -289,6 +294,7 @@ export class ClientsService {
         lenderId: true,
         fullName: true,
         documentNumber: true,
+        email: true,
         phone: true,
         address: true,
         notes: true,
@@ -424,6 +430,7 @@ export class ClientsService {
         lenderId: client.lenderId,
         fullName: client.fullName,
         documentNumber: client.documentNumber,
+        email: client.email,
         phone: client.phone,
         address: client.address,
         notes: client.notes,

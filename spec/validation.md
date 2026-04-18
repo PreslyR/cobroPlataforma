@@ -79,6 +79,14 @@ These scenarios should remain covered by tests.
 4. a valid Supabase session without internal admin mapping is rejected for operational access
 5. web operational navigation works without `lenderId` in the URL when auth session exists
 
+### Client intake
+1. public Tally webhook accepts valid `FORM_RESPONSE` payloads and creates a staging submission
+2. webhook signature validation rejects invalid signatures when signing secret is configured
+3. intake normalization maps form labels into `fullName`, `documentNumber`, `email`, `phone`, and `address`
+4. approving a pending submission creates exactly one `Client`
+5. rejecting a pending submission does not create a `Client`
+6. duplicate conflicts are surfaced before approval writes to `clients`
+
 ## Critical Business Assertions
 The following assertions are important enough that they should always have direct coverage.
 
@@ -88,6 +96,7 @@ The following assertions are important enough that they should always have direc
 4. Early settlement must fail atomically if the amount is insufficient.
 5. Historical reads must not mutate current operational state.
 6. Tenant scope must come from authenticated identity, not from an arbitrary URL parameter.
+7. Public client-intake capture must not bypass the internal approval boundary.
 
 ## Change Checklist
 Before considering a business change done, verify:

@@ -136,6 +136,7 @@ export default async function ClientDetailPage({
       <ClientDetailHero
         fullName={client.fullName}
         documentNumber={client.documentNumber}
+        email={client.email}
         phone={client.phone}
         lenderName={client.lender.name}
         address={client.address}

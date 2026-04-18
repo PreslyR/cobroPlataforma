@@ -303,8 +303,11 @@ input {
 }
 
 .app-shell-content {
+  position: relative;
   width: 100%;
   overflow-x: clip;
+  background: var(--background);
+  isolation: isolate;
   padding-bottom: 7.8rem;
 }
 
@@ -312,6 +315,7 @@ input {
   display: flex;
   justify-content: center;
   padding: 0.85rem 1rem 0;
+  background: var(--background);
 }
 
 .app-shell-mobile-bar-home {

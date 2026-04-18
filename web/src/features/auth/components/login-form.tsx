@@ -3,7 +3,11 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { fetchBackendFromBrowser, getBrowserBackendBaseUrl } from "@/shared/lib/api/browser-backend";
+import {
+  fetchBackendFromBrowser,
+  getBrowserBackendBaseUrl,
+} from "@/shared/lib/api/browser-backend";
+import styles from "./login-form.module.css";
 
 export function LoginForm() {
   const router = useRouter();
@@ -21,7 +25,7 @@ export function LoginForm() {
     if (!email.trim() || !password.trim()) {
       setState({
         status: "error",
-        message: "Ingresa correo y contraseña.",
+        message: "Ingresa correo y contrasena.",
       });
       return;
     }
@@ -72,57 +76,69 @@ export function LoginForm() {
   }
 
   return (
-    <form className="panel gap-4" onSubmit={handleSubmit}>
-      <div>
-        <p className="eyebrow">Acceso</p>
-        <h1 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">
-          Iniciar sesion
-        </h1>
+    <form className={styles.card} onSubmit={handleSubmit}>
+      <div className={styles.header}>
+        <div>
+          <h1 className={styles.title}>Iniciar sesion</h1>
+        </div>
+
+        <div className={styles.badge} aria-hidden="true">
+          <span className={styles.badgeCore}>
+            <svg
+              className={styles.badgeIcon}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M7.5 10.5V8a4.5 4.5 0 1 1 9 0v2.5" />
+              <rect x="5.5" y="10.5" width="13" height="10" rx="2.5" />
+            </svg>
+          </span>
+        </div>
       </div>
 
-      <p className="text-sm leading-6 text-[var(--muted)]">
-        Usa una cuenta creada en Supabase Auth y vinculada a un usuario interno
-        activo del sistema.
-      </p>
+      <div className={styles.fields}>
+        <label className={styles.field}>
+          <span className={styles.label}>Correo</span>
+          <input
+            className={styles.input}
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="prestamista@negocio.com"
+          />
+        </label>
 
-      <label className="surface-field">
-        <span className="surface-label">Correo</span>
-        <input
-          className="surface-input"
-          type="email"
-          autoComplete="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-        />
-      </label>
-
-      <label className="surface-field">
-        <span className="surface-label">Contraseña</span>
-        <input
-          className="surface-input"
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-        />
-      </label>
+        <label className={styles.field}>
+          <span className={styles.label}>Contrasena</span>
+          <input
+            className={styles.input}
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="Tu acceso"
+          />
+        </label>
+      </div>
 
       {state.status === "error" ? (
-        <div className="rounded-2xl border border-[var(--danger-soft)] bg-[var(--danger-soft)]/60 p-4 text-sm text-[var(--foreground)]">
-          {state.message}
-        </div>
+        <div className={styles.errorBox}>{state.message}</div>
       ) : null}
 
       <button
-        className="deep-action-button deep-action-button-primary"
+        className={styles.submit}
         type="submit"
         disabled={state.status === "submitting"}
       >
-        <span className="deep-action-button-label">
+        <span className={styles.submitLabel}>
           {state.status === "submitting" ? "Entrando..." : "Entrar"}
         </span>
       </button>
     </form>
   );
 }
-

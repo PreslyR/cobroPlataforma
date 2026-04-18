@@ -15,6 +15,7 @@ export type ClientsPortfolioResponse = {
     lenderId: string;
     fullName: string;
     documentNumber: string;
+    email: string | null;
     phone: string | null;
     activeLoansCount: number;
     overdueLoansCount: number;
@@ -35,6 +36,7 @@ export type ClientDebtResponse = {
     lenderId: string;
     fullName: string;
     documentNumber: string;
+    email: string | null;
     phone: string | null;
     address: string | null;
     notes: string | null;

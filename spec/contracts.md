@@ -77,6 +77,19 @@ Contract expectations:
 - belongs to one lender
 - can have multiple loans
 - can appear in client portfolio and operational debt views
+- may be created from an approved client-intake submission
+- keeps optional contact data such as `email`, `phone`, and `address`
+
+### Client Intake Submission
+Represents a captured client record before it is approved into `clients`.
+
+Contract expectations:
+- belongs to one lender
+- is not an operational borrower yet
+- stores normalized client data plus raw webhook payload
+- moves through `PENDING`, `APPROVED`, or `REJECTED`
+- must not create or mutate `clients` until an internal admin approves it
+- may carry duplicate flags to support safe review
 
 ### Loan
 Represents a financial agreement.
@@ -204,6 +217,44 @@ The frontend must not attempt to simulate settlement locally.
 ### Payoff preview endpoint
 The payoff preview contract is authoritative for settlement amounts.
 It exists so the frontend does not calculate settlement totals on its own.
+
+### Client intake endpoints
+Current intake flow is designed for external form capture and internal approval.
+
+#### `POST /api/client-intake/tally/:lenderId`
+Purpose:
+- receive a public Tally webhook for one lender
+- normalize captured client data
+- persist a staging record in `client_intake_submissions`
+
+Contract expectations:
+- endpoint is public by design
+- lender is chosen by path parameter, not bearer token
+- if `TALLY_WEBHOOK_SIGNING_SECRET` is configured, the request must contain a valid `Tally-Signature` header
+- successful processing must return `2xx` quickly so Tally does not retry
+- payload must not create a real `Client` directly
+
+#### `GET /api/client-intake/submissions`
+Purpose:
+- list pending or historical intake submissions for the authenticated lender
+
+Contract expectations:
+- tenant scope comes from authenticated admin user
+- optional status filter may be applied
+
+#### `POST /api/client-intake/submissions/:id/approve`
+Purpose:
+- approve one pending intake submission
+- create the real `Client`
+- link the submission to the created client
+
+Contract expectations:
+- only `PENDING` submissions can be approved
+- duplicate conflicts against existing clients must be rejected explicitly
+
+#### `POST /api/client-intake/submissions/:id/reject`
+Purpose:
+- mark one pending intake submission as rejected without creating a client
 
 ## Historical-Date Contract
 The system distinguishes:

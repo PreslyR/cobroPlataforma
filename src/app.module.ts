@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
+import { ClientIntakeModule } from './client-intake/client-intake.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { LenderModule } from './lender/lender.module';
 import { UsersModule } from './users/users.module';
@@ -16,6 +17,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
       isGlobal: true,
     }),
     AuthModule,
+    ClientIntakeModule,
     PrismaModule,
     LenderModule,
     UsersModule,

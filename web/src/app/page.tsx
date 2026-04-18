@@ -88,15 +88,19 @@ export default async function Home({
           </div>
 
           <div className={styles.homeHeroAccent} aria-hidden="true">
-            <span
-              className={`${styles.homeHeroAccentStroke} ${styles.homeHeroAccentStrokeBrand}`}
-            />
-            <span
-              className={`${styles.homeHeroAccentStroke} ${styles.homeHeroAccentStrokeSun}`}
-            />
-            <span
-              className={`${styles.homeHeroAccentStroke} ${styles.homeHeroAccentStrokeSky}`}
-            />
+            <svg
+              className={styles.homeHeroAccentSvg}
+              viewBox="0 0 1440 320"
+              preserveAspectRatio="none"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                fill="#fdd925"
+                fillOpacity="1"
+                d="M0,288L60,288C120,288,240,288,360,250.7C480,213,600,139,720,138.7C840,139,960,213,1080,218.7C1200,224,1320,160,1380,128L1440,96L1440,320L1380,320C1320,320,1200,320,1080,320C960,320,840,320,720,320C600,320,480,320,360,320C240,320,120,320,60,320L0,320Z"
+              />
+            </svg>
           </div>
         </div>
       </section>
