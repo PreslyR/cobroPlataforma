@@ -36,6 +36,8 @@ const fixedFrequencyOptions = [
   "BIWEEKLY",
   "MONTHLY",
 ] as const;
+const MAX_MONTHLY_INTEREST_PERCENT = 100;
+
 function sanitizeIntegerInput(value: string) {
   return value.replace(/[^\d]/g, "");
 }
@@ -51,12 +53,40 @@ function sanitizeDecimalInput(value: string) {
   return `${integerPart}.${decimalParts.join("")}`;
 }
 
+function sanitizePercentageInput(value: string) {
+  const normalized = sanitizeDecimalInput(value);
+
+  if (!normalized) {
+    return "";
+  }
+
+  const numericValue = Number(normalized);
+  if (!Number.isFinite(numericValue)) {
+    return normalized;
+  }
+
+  if (numericValue > MAX_MONTHLY_INTEREST_PERCENT) {
+    return String(MAX_MONTHLY_INTEREST_PERCENT);
+  }
+
+  return normalized;
+}
+
 function formatMoneyInput(value: string) {
   if (!value) {
     return "";
   }
 
   return formatCurrency(Number(value));
+}
+
+function formatPercentInput(value: string) {
+  if (!value) {
+    return "";
+  }
+
+  const normalized = sanitizeDecimalInput(value);
+  return normalized;
 }
 
 function preventImplicitSubmit(event: KeyboardEvent<HTMLFormElement>) {
@@ -142,6 +172,7 @@ export function CreateLoanFormShell({
   const previewTypeLabel = formatLoanType(loanType);
   const previewPrincipal = Number(principalAmount || 0);
   const previewInstallment = Number(installmentAmount || 0);
+  const previewMonthlyInterestPercent = Number(monthlyInterestRate || 0);
   const isSubmitDisabled =
     submitState.status === "submitting" ||
     submitState.status === "success" ||
@@ -247,12 +278,20 @@ export function CreateLoanFormShell({
         return;
       }
     } else {
-      const rate = Number(monthlyInterestRate);
+      const ratePercent = Number(monthlyInterestRate);
 
-      if (!Number.isFinite(rate) || rate <= 0) {
+      if (!Number.isFinite(ratePercent) || ratePercent <= 0) {
         setSubmitState({
           status: "error",
           message: "Ingresa una tasa mensual mayor que 0.",
+        });
+        return;
+      }
+
+      if (ratePercent > MAX_MONTHLY_INTEREST_PERCENT) {
+        setSubmitState({
+          status: "error",
+          message: "La tasa mensual debe estar entre 0 y 100%.",
         });
         return;
       }
@@ -266,7 +305,9 @@ export function CreateLoanFormShell({
       type: loanType,
       principalAmount: previewPrincipal,
       monthlyInterestRate:
-        loanType === "MONTHLY_INTEREST" ? Number(monthlyInterestRate) : undefined,
+        loanType === "MONTHLY_INTEREST"
+          ? Number((previewMonthlyInterestPercent / 100).toFixed(6))
+          : undefined,
       installmentAmount:
         loanType === "FIXED_INSTALLMENTS" ? previewInstallment : undefined,
       totalInstallments:
@@ -484,19 +525,25 @@ export function CreateLoanFormShell({
 
                 <label className="surface-field">
                   <span className="surface-label">Tasa mensual</span>
-                  <input
-                    className="surface-input"
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="0.2 (20%)"
-                    value={monthlyInterestRate}
-                    onChange={(event) =>
-                      setMonthlyInterestRate(
-                        sanitizeDecimalInput(event.target.value),
-                      )
-                    }
-                    autoComplete="off"
-                  />
+                  <div className={styles.percentField}>
+                    <input
+                      className={`surface-input ${styles.percentInput}`}
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="15"
+                      value={formatPercentInput(monthlyInterestRate)}
+                      onChange={(event) =>
+                        setMonthlyInterestRate(
+                          sanitizePercentageInput(event.target.value),
+                        )
+                      }
+                      autoComplete="off"
+                      aria-describedby="monthly-interest-helper"
+                    />
+                    <span className={styles.percentSuffix} aria-hidden="true">
+                      %
+                    </span>
+                  </div>
                 </label>
 
                 <button
@@ -510,7 +557,10 @@ export function CreateLoanFormShell({
                     : "Opciones avanzadas"}
                 </button>
 
-                <p className={styles.helperCopy}>Por defecto se aplica Mes completo.</p>
+                <p className={styles.helperCopy} id="monthly-interest-helper">
+                  Escribe el porcentaje mensual completo. Ejemplo: 6 para 6%, 12.5 para
+                  12.5%. Por defecto se aplica Mes completo.
+                </p>
 
                 {showAdvancedMonthlyOptions ? (
                   <div className={styles.optionBlock}>
@@ -581,7 +631,9 @@ export function CreateLoanFormShell({
                   <>
                     <div className={styles.summaryCell}>
                       <p className={styles.summaryLabel}>Tasa mensual</p>
-                      <p className={styles.summaryValue}>{monthlyInterestRate || "-"}</p>
+                      <p className={styles.summaryValue}>
+                        {monthlyInterestRate ? `${monthlyInterestRate}%` : "-"}
+                      </p>
                     </div>
                     <div className={styles.summaryCell}>
                       <p className={styles.summaryLabel}>Liquidacion</p>

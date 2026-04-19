@@ -124,6 +124,25 @@
   color: var(--muted);
 }
 
+.percentField {
+  position: relative;
+}
+
+.percentInput {
+  padding-right: 2.8rem;
+}
+
+.percentSuffix {
+  position: absolute;
+  right: 0.95rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--muted);
+  pointer-events: none;
+}
+
 
 .advancedToggle {
   display: inline-flex;

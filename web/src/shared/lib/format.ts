@@ -21,7 +21,7 @@ const shortDateFormatter = new Intl.DateTimeFormat("es-CO", {
 
 const percentFormatter = new Intl.NumberFormat("es-CO", {
   style: "percent",
-  maximumFractionDigits: 0,
+  maximumFractionDigits: 2,
 });
 
 const loanTypeLabels = {

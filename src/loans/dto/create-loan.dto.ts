@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsDateString,
   Min,
+  Max,
   ValidateIf,
 } from 'class-validator';
 import {
@@ -33,6 +34,10 @@ export class CreateLoanDto {
   @ValidateIf((o) => o.type !== LoanType.FIXED_INSTALLMENTS)
   @IsNumber()
   @Min(0)
+  @Max(1, {
+    message:
+      'monthlyInterestRate must be sent as a decimal fraction between 0 and 1.',
+  })
   monthlyInterestRate?: number;
 
   // Solo requerido para FIXED_INSTALLMENTS
