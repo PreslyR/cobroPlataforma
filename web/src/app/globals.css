@@ -150,7 +150,7 @@ input {
   outline: none;
 }
 
-.surface-input[type="date"] {
+input[type="date"] {
   inline-size: 100%;
   max-inline-size: 100%;
   min-inline-size: 0;
@@ -163,7 +163,7 @@ input {
   background-size: 1.1rem 1.1rem;
 }
 
-.surface-input[type="date"]::-webkit-calendar-picker-indicator {
+input[type="date"]::-webkit-calendar-picker-indicator {
   opacity: 0;
   position: absolute;
   right: 0;
