@@ -1,16 +1,22 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import {
   fetchBackendFromBrowser,
   getBrowserBackendBaseUrl,
 } from "@/shared/lib/api/browser-backend";
+import { writeSessionActivityTimestamp } from "@/shared/lib/auth/session-activity.client";
+import {
+  SESSION_EXPIRED_REASON,
+  SESSION_REASON_QUERY_PARAM,
+} from "@/shared/lib/auth/session-inactivity";
 import styles from "./login-form.module.css";
 
 export function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [state, setState] = useState<
@@ -18,6 +24,8 @@ export function LoginForm() {
     | { status: "submitting" }
     | { status: "error"; message: string }
   >({ status: "idle" });
+  const expiredByInactivity =
+    searchParams.get(SESSION_REASON_QUERY_PARAM) === SESSION_EXPIRED_REASON;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -71,6 +79,7 @@ export function LoginForm() {
       return;
     }
 
+    writeSessionActivityTimestamp();
     router.replace("/");
     router.refresh();
   }
@@ -125,6 +134,13 @@ export function LoginForm() {
           />
         </label>
       </div>
+
+      {expiredByInactivity ? (
+        <div className={styles.infoBox}>
+          Tu sesion se cerro por 30 minutos sin actividad. Ingresa de nuevo para
+          continuar.
+        </div>
+      ) : null}
 
       {state.status === "error" ? (
         <div className={styles.errorBox}>{state.message}</div>

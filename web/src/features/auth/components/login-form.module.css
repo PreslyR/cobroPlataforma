@@ -107,6 +107,16 @@
   color: var(--foreground);
 }
 
+.infoBox {
+  border: 1px solid color-mix(in srgb, #f4b400 30%, white 70%);
+  border-radius: 1.15rem;
+  background: color-mix(in srgb, #fff4c2 78%, white 22%);
+  padding: 0.72rem 0.85rem;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: var(--foreground);
+}
+
 .submit {
   display: inline-flex;
   min-height: 3.15rem;

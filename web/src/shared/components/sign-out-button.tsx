@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { clearSessionActivityTracking } from "@/shared/lib/auth/session-activity.client";
 
 type SignOutButtonProps = {
   variant?: "desktop" | "mobile";
@@ -68,9 +69,15 @@ export function SignOutButton({ variant = "desktop" }: SignOutButtonProps) {
   async function handleSignOut() {
     setIsSigningOut(true);
     const supabase = getSupabaseBrowserClient();
-    await supabase.auth.signOut();
-    router.replace("/login");
-    router.refresh();
+
+    clearSessionActivityTracking();
+
+    try {
+      await supabase.auth.signOut();
+    } finally {
+      router.replace("/login");
+      router.refresh();
+    }
   }
 
   return (

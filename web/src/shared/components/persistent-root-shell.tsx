@@ -3,6 +3,7 @@
 import { ReactNode, useLayoutEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { AppShell } from "@/shared/components/app-shell";
+import { SessionInactivityGuard } from "@/shared/components/session-inactivity-guard";
 
 type PersistentRootShellProps = {
   children: ReactNode;
@@ -66,10 +67,6 @@ export function PersistentRootShell({
     };
   }, [pathname]);
 
-  if (!ROOT_PATHS.has(pathname)) {
-    return <>{children}</>;
-  }
-
   const today = toDateInputValue(new Date());
   const routeDate = clampDateInputValue(
     searchParams.get("date") ?? searchParams.get("to") ?? today,
@@ -117,7 +114,9 @@ export function PersistentRootShell({
           ? "reports"
           : "dashboard";
 
-  return (
+  const content = !ROOT_PATHS.has(pathname) ? (
+    <>{children}</>
+  ) : (
     <AppShell
       activeItem={activeItem}
       navItems={navItems}
@@ -132,5 +131,12 @@ export function PersistentRootShell({
     >
       {children}
     </AppShell>
+  );
+
+  return (
+    <>
+      <SessionInactivityGuard />
+      {content}
+    </>
   );
 }

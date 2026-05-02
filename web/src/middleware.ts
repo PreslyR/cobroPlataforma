@@ -1,5 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import {
+  isSessionInactive,
+  isSupabaseAuthCookieName,
+  parseActivityTimestamp,
+  SESSION_ACTIVITY_COOKIE_MAX_AGE_SECONDS,
+  SESSION_ACTIVITY_COOKIE_NAME,
+  SESSION_EXPIRED_REASON,
+  SESSION_REASON_QUERY_PARAM,
+} from "@/shared/lib/auth/session-inactivity";
 
 function getSupabaseUrl() {
   const value = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -22,6 +31,18 @@ function getSupabaseAnonKey() {
 }
 
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+  const isPublicAsset =
+    pathname.startsWith("/_next") ||
+    pathname === "/favicon.ico" ||
+    /\.(svg|png|jpg|jpeg|gif|webp|ico)$/.test(pathname);
+
+  if (isPublicAsset) {
+    return NextResponse.next({
+      request,
+    });
+  }
+
   let response = NextResponse.next({
     request,
   });
@@ -53,15 +74,43 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const pathname = request.nextUrl.pathname;
   const isLoginRoute = pathname === "/login";
-  const isPublicAsset =
-    pathname.startsWith("/_next") ||
-    pathname === "/favicon.ico" ||
-    /\.(svg|png|jpg|jpeg|gif|webp|ico)$/.test(pathname);
+  const lastActivityAt = parseActivityTimestamp(
+    request.cookies.get(SESSION_ACTIVITY_COOKIE_NAME)?.value,
+  );
 
-  if (isPublicAsset) {
-    return response;
+  if (user && lastActivityAt && isSessionInactive(lastActivityAt)) {
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/login";
+    loginUrl.search = new URLSearchParams({
+      [SESSION_REASON_QUERY_PARAM]: SESSION_EXPIRED_REASON,
+    }).toString();
+
+    const redirectResponse = NextResponse.redirect(loginUrl);
+
+    request.cookies.getAll().forEach(({ name }) => {
+      if (
+        name === SESSION_ACTIVITY_COOKIE_NAME ||
+        isSupabaseAuthCookieName(name)
+      ) {
+        redirectResponse.cookies.delete(name);
+      }
+    });
+
+    return redirectResponse;
+  }
+
+  if (user && !lastActivityAt) {
+    response.cookies.set(SESSION_ACTIVITY_COOKIE_NAME, String(Date.now()), {
+      path: "/",
+      maxAge: SESSION_ACTIVITY_COOKIE_MAX_AGE_SECONDS,
+      sameSite: "lax",
+      secure: request.nextUrl.protocol === "https:",
+    });
+  }
+
+  if (!user) {
+    response.cookies.delete(SESSION_ACTIVITY_COOKIE_NAME);
   }
 
   if (!user && !isLoginRoute) {
@@ -83,4 +132,3 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
 };
-

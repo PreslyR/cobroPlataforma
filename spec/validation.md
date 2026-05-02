@@ -78,6 +78,7 @@ These scenarios should remain covered by tests.
 3. authenticated request resolves the internal admin user and lender scope from the token email mapping
 4. a valid Supabase session without internal admin mapping is rejected for operational access
 5. web operational navigation works without `lenderId` in the URL when auth session exists
+6. protected web routes invalidate the session after `30` minutes of inactivity and redirect back to login
 
 ### Client intake
 1. public Tally webhook accepts valid `FORM_RESPONSE` payloads and creates a staging submission

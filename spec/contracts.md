@@ -48,6 +48,8 @@ The web app currently assumes:
 - server-side reads send the bearer token to the backend
 - browser-side writes send the bearer token to the backend
 - route access is guarded before rendering operational pages
+- protected operational routes must invalidate the web session after `30` minutes without user activity
+- when inactivity timeout is reached, the user must authenticate again before continuing
 
 ### Scope rule
 Operational frontend routes must not depend on `lenderId` in the URL to decide tenant scope.
