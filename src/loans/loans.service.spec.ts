@@ -1,4 +1,10 @@
-import { LoanType, PaymentFrequency } from "@prisma/client";
+import {
+  EarlySettlementInterestMode,
+  InstallmentStatus,
+  LoanStatus,
+  LoanType,
+  PaymentFrequency,
+} from "@prisma/client";
 import { LoansService } from "./loans.service";
 
 describe("LoansService", () => {
@@ -207,5 +213,211 @@ describe("LoansService", () => {
     expect(createArgs.data.expectedEndDate.toISOString()).toBe(
       "2026-12-05T00:00:00.000Z",
     );
+  });
+
+  it("builds active loan snapshots from batched read queries", async () => {
+    const snapshotPrisma = {
+      loan: {
+        findMany: jest.fn(async () => [
+          {
+            id: "loan-fixed",
+            lenderId: "lender-1",
+            clientId: "client-1",
+            type: LoanType.FIXED_INSTALLMENTS,
+            status: LoanStatus.ACTIVE,
+            principalAmount: 100000,
+            currentPrincipal: 100000,
+            monthlyInterestRate: null,
+            installmentAmount: 30000,
+            totalInstallments: 4,
+            paymentFrequency: PaymentFrequency.WEEKLY,
+            earlySettlementInterestMode: EarlySettlementInterestMode.FULL_MONTH,
+            startDate: new Date("2026-04-10T00:00:00.000Z"),
+            expectedEndDate: new Date("2026-05-08T00:00:00.000Z"),
+            client: {
+              fullName: "Ana Fixed",
+            },
+          },
+          {
+            id: "loan-monthly",
+            lenderId: "lender-1",
+            clientId: "client-2",
+            type: LoanType.MONTHLY_INTEREST,
+            status: LoanStatus.ACTIVE,
+            principalAmount: 200000,
+            currentPrincipal: 200000,
+            monthlyInterestRate: 0.1,
+            installmentAmount: null,
+            totalInstallments: null,
+            paymentFrequency: PaymentFrequency.MONTHLY,
+            earlySettlementInterestMode: EarlySettlementInterestMode.FULL_MONTH,
+            startDate: new Date("2026-03-01T00:00:00.000Z"),
+            expectedEndDate: null,
+            client: {
+              fullName: "Bruno Monthly",
+            },
+          },
+        ]),
+      },
+      loanPenalty: {
+        findMany: jest.fn(async () => [
+          {
+            id: "penalty-1",
+            loanId: "loan-monthly",
+            penaltyAmount: 5000,
+            periodEndDate: new Date("2026-05-01T00:00:00.000Z"),
+          },
+        ]),
+      },
+      loanInterest: {
+        findMany: jest.fn(async () => [
+          {
+            id: "interest-fixed-1",
+            loanId: "loan-fixed",
+            periodStartDate: new Date("2026-04-10T00:00:00.000Z"),
+            periodEndDate: new Date("2026-04-17T00:00:00.000Z"),
+            interestAmount: 5000,
+            interestPaid: 5000,
+            interestPending: 0,
+          },
+          {
+            id: "interest-fixed-2",
+            loanId: "loan-fixed",
+            periodStartDate: new Date("2026-04-17T00:00:00.000Z"),
+            periodEndDate: new Date("2026-04-24T00:00:00.000Z"),
+            interestAmount: 5000,
+            interestPaid: 0,
+            interestPending: 5000,
+          },
+          {
+            id: "interest-monthly-1",
+            loanId: "loan-monthly",
+            periodStartDate: new Date("2026-04-01T00:00:00.000Z"),
+            periodEndDate: new Date("2026-05-01T00:00:00.000Z"),
+            interestAmount: 20000,
+            interestPaid: 0,
+            interestPending: 20000,
+          },
+        ]),
+      },
+      installment: {
+        findMany: jest.fn(async () => [
+          {
+            id: "inst-1",
+            loanId: "loan-fixed",
+            installmentNumber: 1,
+            dueDate: new Date("2026-04-17T00:00:00.000Z"),
+            amount: 30000,
+            status: InstallmentStatus.PAID,
+          },
+          {
+            id: "inst-2",
+            loanId: "loan-fixed",
+            installmentNumber: 2,
+            dueDate: new Date("2026-04-24T00:00:00.000Z"),
+            amount: 30000,
+            status: InstallmentStatus.PENDING,
+          },
+          {
+            id: "inst-3",
+            loanId: "loan-fixed",
+            installmentNumber: 3,
+            dueDate: new Date("2026-05-02T00:00:00.000Z"),
+            amount: 30000,
+            status: InstallmentStatus.PENDING,
+          },
+          {
+            id: "inst-4",
+            loanId: "loan-fixed",
+            installmentNumber: 4,
+            dueDate: new Date("2026-05-09T00:00:00.000Z"),
+            amount: 30000,
+            status: InstallmentStatus.PENDING,
+          },
+        ]),
+      },
+      payment: {
+        groupBy: jest.fn(async () => [
+          {
+            loanId: "loan-fixed",
+            _sum: {
+              appliedToPrincipal: 25000,
+              appliedToInterest: 5000,
+            },
+          },
+        ]),
+      },
+    };
+    const interestService = {
+      ensureMonthlyInterestScheduleUpTo: jest.fn(async () => 0),
+    };
+    const penaltyService = {
+      generateFixedInstallmentPenaltiesIncremental: jest.fn(async () => []),
+      generateMonthlyInterestPenaltiesIncremental: jest.fn(async () => []),
+    };
+    const snapshotService = new LoansService(
+      snapshotPrisma as never,
+      interestService as never,
+      penaltyService as never,
+    );
+
+    const result = await snapshotService.getActiveLoanSnapshots({
+      asOf: "2026-05-02",
+      lenderId: "lender-1",
+    });
+
+    expect(snapshotPrisma.loan.findMany).toHaveBeenCalledTimes(1);
+    expect(snapshotPrisma.loanPenalty.findMany).toHaveBeenCalledTimes(1);
+    expect(snapshotPrisma.loanInterest.findMany).toHaveBeenCalledTimes(1);
+    expect(snapshotPrisma.installment.findMany).toHaveBeenCalledTimes(1);
+    expect(snapshotPrisma.payment.groupBy).toHaveBeenCalledTimes(1);
+
+    expect(interestService.ensureMonthlyInterestScheduleUpTo).toHaveBeenCalledWith(
+      "loan-monthly",
+      new Date("2026-05-02T00:00:00.000Z"),
+    );
+    expect(
+      penaltyService.generateFixedInstallmentPenaltiesIncremental,
+    ).toHaveBeenCalledWith("loan-fixed", new Date("2026-05-02T00:00:00.000Z"), {
+      preserveFutureState: false,
+    });
+
+    expect(result.snapshots).toHaveLength(2);
+    expect(result.snapshots[0]).toMatchObject({
+      loan: {
+        id: "loan-fixed",
+        clientName: "Ana Fixed",
+        currentPrincipal: 75000,
+      },
+      dueToday: true,
+      overdue: true,
+      dueTodayAmount: 30000,
+      overdueAmount: 30000,
+      totalCollectibleToday: 60000,
+      installments: {
+        totalPending: 90000,
+        dueTodayCount: 1,
+        overdueCount: 1,
+      },
+    });
+    expect(result.snapshots[1]).toMatchObject({
+      loan: {
+        id: "loan-monthly",
+        clientName: "Bruno Monthly",
+        currentPrincipal: 200000,
+      },
+      dueToday: false,
+      overdue: true,
+      dueTodayAmount: 0,
+      overdueAmount: 20000,
+      totalCollectibleToday: 25000,
+      penalty: {
+        pending: 5000,
+      },
+      interest: {
+        totalPending: 20000,
+        overduePending: 20000,
+      },
+    });
   });
 });

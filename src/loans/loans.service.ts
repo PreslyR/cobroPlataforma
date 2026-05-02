@@ -18,8 +18,56 @@ import { InterestCalculationService } from "../payments/services/interest-calcul
 import { PenaltyCalculationService } from "../payments/services/penalty-calculation.service";
 import { measureAsync } from '../common/perf/perf-logger';
 
-const DEFAULT_SNAPSHOT_CONCURRENCY = 1;
+const DEFAULT_SNAPSHOT_CONCURRENCY = 4;
 const MAX_SNAPSHOT_CONCURRENCY = 4;
+
+type LoanSnapshotLoanBase = {
+  id: string;
+  lenderId: string;
+  clientId: string;
+  type: LoanType;
+  status: LoanStatus;
+  principalAmount: number;
+  currentPrincipal: number;
+  monthlyInterestRate: number | null;
+  installmentAmount: number | null;
+  totalInstallments: number | null;
+  paymentFrequency: PaymentFrequency;
+  earlySettlementInterestMode: EarlySettlementInterestMode;
+  startDate: Date;
+  expectedEndDate: Date | null;
+  client: {
+    fullName: string;
+  };
+};
+
+type LoanSnapshotPenaltyRow = {
+  id: string;
+  penaltyAmount: number;
+  periodEndDate: Date | null;
+};
+
+type LoanSnapshotInterestRow = {
+  id: string;
+  periodStartDate: Date;
+  periodEndDate: Date;
+  interestAmount: number;
+  interestPaid: number;
+  interestPending: number;
+};
+
+type LoanSnapshotInstallmentRow = {
+  id: string;
+  installmentNumber: number;
+  dueDate: Date;
+  amount: number;
+  status: InstallmentStatus;
+};
+
+type LoanSnapshotPaymentSummary = {
+  appliedToPrincipal: number;
+  appliedToInterest: number;
+};
 
 @Injectable()
 export class LoansService {
@@ -587,7 +635,7 @@ export class LoansService {
     const normalizedSearch = filters.search?.trim();
     const logLabel = filters.logLabel ?? 'loans.getActiveLoanSnapshots';
 
-    const loans = await measureAsync(this.logger, `${logLabel}.listActiveLoanIds`, () =>
+    const loans = await measureAsync(this.logger, `${logLabel}.listActiveLoans`, () =>
       this.prisma.loan.findMany({
         where: {
           status: LoanStatus.ACTIVE,
@@ -604,12 +652,41 @@ export class LoansService {
             },
           }),
         },
-        select: { id: true },
+        select: {
+          id: true,
+          lenderId: true,
+          clientId: true,
+          type: true,
+          status: true,
+          principalAmount: true,
+          currentPrincipal: true,
+          monthlyInterestRate: true,
+          installmentAmount: true,
+          totalInstallments: true,
+          paymentFrequency: true,
+          earlySettlementInterestMode: true,
+          startDate: true,
+          expectedEndDate: true,
+          client: {
+            select: {
+              fullName: true,
+            },
+          },
+        },
       }),
     );
 
-    const snapshots = await this.buildLoanDebtSnapshotsForLoanIds(
-      loans.map((loan) => loan.id),
+    if (loans.length === 0) {
+      return {
+        asOfDate,
+        snapshots: [],
+      };
+    }
+
+    await this.ensureOperationalStateForLoanBases(loans, asOfDate, logLabel);
+
+    const snapshots = await this.buildLoanDebtSnapshotsForLoans(
+      loans,
       asOfDate,
       logLabel,
     );
@@ -838,6 +915,73 @@ export class LoansService {
       },
     );
 
+    if (loan.type === LoanType.FIXED_INSTALLMENTS) {
+      const { installments, paymentsSummary } = await measureAsync(
+        this.logger,
+        `loans.buildLoanDebtSnapshot(${id}).loadInstallmentsAndPayments`,
+        async () => {
+          const installments = await this.prisma.installment.findMany({
+            where: { loanId: id },
+            orderBy: { installmentNumber: "asc" },
+            select: {
+              id: true,
+              installmentNumber: true,
+              dueDate: true,
+              amount: true,
+              status: true,
+            },
+          });
+          const paymentsSummary = await this.prisma.payment.aggregate({
+            where: { loanId: id },
+            _sum: { appliedToPrincipal: true, appliedToInterest: true },
+          });
+
+          return {
+            installments,
+            paymentsSummary,
+          };
+        },
+      );
+
+      return this.composeLoanDebtSnapshot({
+        loan,
+        normalizedAsOfDate,
+        pendingPenalties,
+        interests,
+        installments,
+        paymentSummary: {
+          appliedToPrincipal: paymentsSummary._sum.appliedToPrincipal ?? 0,
+          appliedToInterest: paymentsSummary._sum.appliedToInterest ?? 0,
+        },
+      });
+    }
+
+    return this.composeLoanDebtSnapshot({
+      loan,
+      normalizedAsOfDate,
+      pendingPenalties,
+      interests,
+      installments: [],
+      paymentSummary: null,
+    });
+  }
+
+  private composeLoanDebtSnapshot(params: {
+    loan: LoanSnapshotLoanBase;
+    normalizedAsOfDate: Date;
+    pendingPenalties: LoanSnapshotPenaltyRow[];
+    interests: LoanSnapshotInterestRow[];
+    installments: LoanSnapshotInstallmentRow[];
+    paymentSummary: LoanSnapshotPaymentSummary | null;
+  }) {
+    const {
+      loan,
+      normalizedAsOfDate,
+      pendingPenalties,
+      interests,
+      installments,
+      paymentSummary,
+    } = params;
     const penaltyPending = this.normalizeMoney(
       pendingPenalties.reduce((sum, penalty) => sum + penalty.penaltyAmount, 0),
     );
@@ -888,40 +1032,14 @@ export class LoansService {
       overdueInterestRows[0]?.periodEndDate ?? null;
 
     if (loan.type === LoanType.FIXED_INSTALLMENTS) {
-      const { installments, paymentsSummary } = await measureAsync(
-        this.logger,
-        `loans.buildLoanDebtSnapshot(${id}).loadInstallmentsAndPayments`,
-        async () => {
-          const installments = await this.prisma.installment.findMany({
-            where: { loanId: id },
-            orderBy: { installmentNumber: "asc" },
-            select: {
-              id: true,
-              installmentNumber: true,
-              dueDate: true,
-              amount: true,
-              status: true,
-            },
-          });
-          const paymentsSummary = await this.prisma.payment.aggregate({
-            where: { loanId: id },
-            _sum: { appliedToPrincipal: true, appliedToInterest: true },
-          });
-
-          return {
-            installments,
-            paymentsSummary,
-          };
-        },
-      );
-
-      let coveredAmount = this.normalizeMoney(
-        (paymentsSummary._sum.appliedToPrincipal ?? 0) +
-          (paymentsSummary._sum.appliedToInterest ?? 0),
+      const principalPaid = paymentSummary?.appliedToPrincipal ?? 0;
+      const coveredAmountStart = this.normalizeMoney(
+        principalPaid + (paymentSummary?.appliedToInterest ?? 0),
       );
       const outstandingPrincipal = this.normalizeMoney(
-        Math.max(0, loan.principalAmount - (paymentsSummary._sum.appliedToPrincipal ?? 0)),
+        Math.max(0, loan.principalAmount - principalPaid),
       );
+      let coveredAmount = coveredAmountStart;
       let totalPendingInstallmentAmount = 0;
       let dueTodayAmount = 0;
       let overdueAmount = 0;
@@ -952,23 +1070,16 @@ export class LoansService {
         const dueDate = this.toUtcDateOnly(installment.dueDate);
 
         if (dueDate < normalizedAsOfDate) {
-          overdueAmount = this.normalizeMoney(
-            overdueAmount + installmentPending,
-          );
+          overdueAmount = this.normalizeMoney(overdueAmount + installmentPending);
           overdueCount++;
           oldestOverdueDate ??= installment.dueDate;
         } else if (this.isSameUtcDate(dueDate, normalizedAsOfDate)) {
-          dueTodayAmount = this.normalizeMoney(
-            dueTodayAmount + installmentPending,
-          );
+          dueTodayAmount = this.normalizeMoney(dueTodayAmount + installmentPending);
           dueTodayCount++;
         }
       }
 
-      const fallbackOldestDueDate =
-        oldestOverdueDate ?? oldestPendingPenaltyDate;
-      const dueToday = dueTodayAmount > 0;
-      const overdue = overdueAmount > 0 || penaltyPending > 0;
+      const oldestDueDate = oldestOverdueDate ?? oldestPendingPenaltyDate;
 
       return {
         loan: {
@@ -1002,11 +1113,11 @@ export class LoansService {
         totalCollectibleToday: this.normalizeMoney(
           penaltyPending + overdueAmount + dueTodayAmount,
         ),
-        dueToday,
-        overdue,
-        oldestDueDate: fallbackOldestDueDate,
-        daysLate: fallbackOldestDueDate
-          ? this.diffDaysUtc(fallbackOldestDueDate, normalizedAsOfDate)
+        dueToday: dueTodayAmount > 0,
+        overdue: overdueAmount > 0 || penaltyPending > 0,
+        oldestDueDate,
+        daysLate: oldestDueDate
+          ? this.diffDaysUtc(oldestDueDate, normalizedAsOfDate)
           : 0,
       };
     }
@@ -1056,26 +1167,162 @@ export class LoansService {
     };
   }
 
-  private async buildLoanDebtSnapshotsForLoanIds(
-    loanIds: string[],
+  private async ensureOperationalStateForLoanBases(
+    loans: Array<Pick<LoanSnapshotLoanBase, 'id' | 'type' | 'status'>>,
     asOfDate: Date,
     logLabel: string,
   ) {
-    const snapshots = [];
     const snapshotConcurrency = this.getSnapshotConcurrency();
 
-    await measureAsync(this.logger, `${logLabel}.snapshots x${loanIds.length}`, async () => {
-      for (let index = 0; index < loanIds.length; index += snapshotConcurrency) {
-        const batchIds = loanIds.slice(index, index + snapshotConcurrency);
-        const batchSnapshots = await Promise.all(
-          batchIds.map((loanId) => this.buildLoanDebtSnapshot(loanId, asOfDate)),
-        );
+    await measureAsync(
+      this.logger,
+      `${logLabel}.ensureOperationalState x${loans.length}`,
+      async () => {
+        for (let index = 0; index < loans.length; index += snapshotConcurrency) {
+          const batch = loans.slice(index, index + snapshotConcurrency);
 
-        snapshots.push(...batchSnapshots);
-      }
-    });
+          await Promise.all(
+            batch.map((loan) =>
+              this.ensureOperationalStateForLoanBase(loan, asOfDate, {
+                repairFixedInstallmentCurrentPrincipal: false,
+              }),
+            ),
+          );
+        }
+      },
+    );
+  }
 
-    return snapshots;
+  private async buildLoanDebtSnapshotsForLoans(
+    loans: LoanSnapshotLoanBase[],
+    asOfDate: Date,
+    logLabel: string,
+  ) {
+    const normalizedAsOfDate = this.toUtcDateOnly(asOfDate);
+    const loanIds = loans.map((loan) => loan.id);
+    const fixedLoanIds = loans
+      .filter((loan) => loan.type === LoanType.FIXED_INSTALLMENTS)
+      .map((loan) => loan.id);
+
+    const [pendingPenalties, interests, installments, paymentSummaries] =
+      await measureAsync(
+        this.logger,
+        `${logLabel}.loadSnapshotReadModel x${loanIds.length}`,
+        async () =>
+          Promise.all([
+            this.prisma.loanPenalty.findMany({
+              where: {
+                loanId: { in: loanIds },
+                wasCharged: false,
+                OR: [
+                  { periodEndDate: null },
+                  { periodEndDate: { lte: normalizedAsOfDate } },
+                ],
+              },
+              orderBy: [{ loanId: 'asc' }, { calculatedAt: 'asc' }],
+              select: {
+                id: true,
+                loanId: true,
+                penaltyAmount: true,
+                periodEndDate: true,
+              },
+            }),
+            this.prisma.loanInterest.findMany({
+              where: { loanId: { in: loanIds } },
+              orderBy: [{ loanId: 'asc' }, { periodStartDate: 'asc' }],
+              select: {
+                id: true,
+                loanId: true,
+                periodStartDate: true,
+                periodEndDate: true,
+                interestAmount: true,
+                interestPaid: true,
+                interestPending: true,
+              },
+            }),
+            fixedLoanIds.length > 0
+              ? this.prisma.installment.findMany({
+                  where: { loanId: { in: fixedLoanIds } },
+                  orderBy: [{ loanId: 'asc' }, { installmentNumber: 'asc' }],
+                  select: {
+                    id: true,
+                    loanId: true,
+                    installmentNumber: true,
+                    dueDate: true,
+                    amount: true,
+                    status: true,
+                  },
+                })
+              : Promise.resolve([]),
+            fixedLoanIds.length > 0
+              ? this.prisma.payment.groupBy({
+                  by: ['loanId'],
+                  where: { loanId: { in: fixedLoanIds } },
+                  _sum: {
+                    appliedToPrincipal: true,
+                    appliedToInterest: true,
+                  },
+                })
+              : Promise.resolve([]),
+          ]),
+      );
+
+    const penaltiesByLoanId = new Map<string, LoanSnapshotPenaltyRow[]>();
+    for (const penalty of pendingPenalties) {
+      const loanPenalties = penaltiesByLoanId.get(penalty.loanId) ?? [];
+      loanPenalties.push({
+        id: penalty.id,
+        penaltyAmount: penalty.penaltyAmount,
+        periodEndDate: penalty.periodEndDate,
+      });
+      penaltiesByLoanId.set(penalty.loanId, loanPenalties);
+    }
+
+    const interestsByLoanId = new Map<string, LoanSnapshotInterestRow[]>();
+    for (const interest of interests) {
+      const loanInterests = interestsByLoanId.get(interest.loanId) ?? [];
+      loanInterests.push({
+        id: interest.id,
+        periodStartDate: interest.periodStartDate,
+        periodEndDate: interest.periodEndDate,
+        interestAmount: interest.interestAmount,
+        interestPaid: interest.interestPaid,
+        interestPending: interest.interestPending,
+      });
+      interestsByLoanId.set(interest.loanId, loanInterests);
+    }
+
+    const installmentsByLoanId = new Map<string, LoanSnapshotInstallmentRow[]>();
+    for (const installment of installments) {
+      const loanInstallments = installmentsByLoanId.get(installment.loanId) ?? [];
+      loanInstallments.push({
+        id: installment.id,
+        installmentNumber: installment.installmentNumber,
+        dueDate: installment.dueDate,
+        amount: installment.amount,
+        status: installment.status,
+      });
+      installmentsByLoanId.set(installment.loanId, loanInstallments);
+    }
+
+    const paymentSummaryByLoanId = new Map<string, LoanSnapshotPaymentSummary>();
+    for (const paymentSummary of paymentSummaries) {
+      paymentSummaryByLoanId.set(paymentSummary.loanId, {
+        appliedToPrincipal: paymentSummary._sum.appliedToPrincipal ?? 0,
+        appliedToInterest: paymentSummary._sum.appliedToInterest ?? 0,
+      });
+    }
+
+    return loans.map((loan) =>
+      this.composeLoanDebtSnapshot({
+        loan,
+        normalizedAsOfDate,
+        pendingPenalties: penaltiesByLoanId.get(loan.id) ?? [],
+        interests: interestsByLoanId.get(loan.id) ?? [],
+        installments: installmentsByLoanId.get(loan.id) ?? [],
+        paymentSummary: paymentSummaryByLoanId.get(loan.id) ?? null,
+      }),
+    );
   }
 
   private getSnapshotConcurrency() {
@@ -1213,10 +1460,20 @@ export class LoansService {
       throw new NotFoundException(`Loan with ID ${id} not found`);
     }
 
+    await this.ensureOperationalStateForLoanBase(loan, asOfDate, options);
+  }
+
+  private async ensureOperationalStateForLoanBase(
+    loan: Pick<LoanSnapshotLoanBase, 'id' | 'type' | 'status'>,
+    asOfDate: Date = new Date(),
+    options: { repairFixedInstallmentCurrentPrincipal?: boolean } = {},
+  ) {
     if (loan.status !== LoanStatus.ACTIVE) {
       return;
     }
 
+    const repairFixedInstallmentCurrentPrincipal =
+      options.repairFixedInstallmentCurrentPrincipal ?? true;
     const normalizedAsOfDate = this.toUtcDateOnly(asOfDate);
     const today = this.toUtcDateOnly(new Date());
     const preserveFutureState = normalizedAsOfDate < today;
@@ -1224,20 +1481,20 @@ export class LoansService {
     if (loan.type === LoanType.MONTHLY_INTEREST) {
       await measureAsync(
         this.logger,
-        `loans.ensureOperationalStateForRead(${id}).ensureMonthlyInterestSchedule`,
+        `loans.ensureOperationalStateForRead(${loan.id}).ensureMonthlyInterestSchedule`,
         () =>
           this.interestService.ensureMonthlyInterestScheduleUpTo(
-            id,
+            loan.id,
             normalizedAsOfDate,
           ),
       );
 
       await measureAsync(
         this.logger,
-        `loans.ensureOperationalStateForRead(${id}).generateMonthlyInterestPenalties`,
+        `loans.ensureOperationalStateForRead(${loan.id}).generateMonthlyInterestPenalties`,
         () =>
           this.penaltyService.generateMonthlyInterestPenaltiesIncremental(
-            id,
+            loan.id,
             normalizedAsOfDate,
             { preserveFutureState },
           ),
@@ -1249,10 +1506,10 @@ export class LoansService {
     if (loan.type === LoanType.FIXED_INSTALLMENTS) {
       await measureAsync(
         this.logger,
-        `loans.ensureOperationalStateForRead(${id}).generateFixedInstallmentPenalties`,
+        `loans.ensureOperationalStateForRead(${loan.id}).generateFixedInstallmentPenalties`,
         () =>
           this.penaltyService.generateFixedInstallmentPenaltiesIncremental(
-            id,
+            loan.id,
             normalizedAsOfDate,
             { preserveFutureState },
           ),
@@ -1261,8 +1518,8 @@ export class LoansService {
       if (repairFixedInstallmentCurrentPrincipal) {
         await measureAsync(
           this.logger,
-          `loans.ensureOperationalStateForRead(${id}).syncFixedInstallmentCurrentPrincipal`,
-          () => this.syncFixedInstallmentCurrentPrincipal(id),
+          `loans.ensureOperationalStateForRead(${loan.id}).syncFixedInstallmentCurrentPrincipal`,
+          () => this.syncFixedInstallmentCurrentPrincipal(loan.id),
         );
       }
     }

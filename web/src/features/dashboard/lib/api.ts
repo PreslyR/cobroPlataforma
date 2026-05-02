@@ -8,7 +8,7 @@ type DashboardParams = {
   date?: string;
 };
 
-type DashboardResult =
+export type DashboardResult =
   | {
       ok: true;
       data: DashboardTodayResponse;
