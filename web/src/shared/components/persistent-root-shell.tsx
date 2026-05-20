@@ -3,6 +3,7 @@
 import { ReactNode, useLayoutEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { AppShell } from "@/shared/components/app-shell";
+import { NavigationPerfTracker } from "@/shared/components/navigation-perf-tracker";
 import { SessionInactivityGuard } from "@/shared/components/session-inactivity-guard";
 
 type PersistentRootShellProps = {
@@ -135,6 +136,7 @@ export function PersistentRootShell({
 
   return (
     <>
+      <NavigationPerfTracker />
       <SessionInactivityGuard />
       {content}
     </>

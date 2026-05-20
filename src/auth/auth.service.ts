@@ -1,7 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UserRole } from '@prisma/client';
 import { createRemoteJWKSet, jwtVerify, JWTPayload } from 'jose';
+import { measureAsync } from '../common/perf/perf-logger';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthenticatedAppUser } from './auth.types';
 
@@ -12,6 +13,7 @@ type SupabaseJwtPayload = JWTPayload & {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private readonly jwks: ReturnType<typeof createRemoteJWKSet>;
   private readonly issuer: string;
   private readonly audience: string;
@@ -39,10 +41,12 @@ export class AuthService {
     let payload: SupabaseJwtPayload;
 
     try {
-      const verified = await jwtVerify(token, this.jwks, {
-        issuer: this.issuer,
-        audience: this.audience,
-      });
+      const verified = await measureAsync(this.logger, 'auth.jwtVerify', () =>
+        jwtVerify(token, this.jwks, {
+          issuer: this.issuer,
+          audience: this.audience,
+        }),
+      );
 
       payload = verified.payload as SupabaseJwtPayload;
     } catch {
@@ -57,27 +61,29 @@ export class AuthService {
       throw new UnauthorizedException('Auth token is missing the email claim.');
     }
 
-    const user = await this.prisma.user.findFirst({
-      where: {
-        email: payload.email,
-        isActive: true,
-        role: UserRole.ADMIN,
-        lender: {
+    const user = await measureAsync(this.logger, 'auth.userLookup', () =>
+      this.prisma.user.findFirst({
+        where: {
+          email: payload.email,
           isActive: true,
-        },
-      },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        lenderId: true,
-        lender: {
-          select: {
-            name: true,
+          role: UserRole.ADMIN,
+          lender: {
+            isActive: true,
           },
         },
-      },
-    });
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          lenderId: true,
+          lender: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      }),
+    );
 
     if (!user) {
       throw new UnauthorizedException(
@@ -95,4 +101,3 @@ export class AuthService {
     };
   }
 }
-
