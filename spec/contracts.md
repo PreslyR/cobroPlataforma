@@ -208,6 +208,21 @@ The UI must be able to distinguish:
 - pending penalty
 - total collectible or payoff amount
 
+### Reports overview endpoint
+`GET /api/reports/overview?from=YYYY-MM-DD&to=YYYY-MM-DD&limit=20`
+is the preferred contract for the reports page.
+
+It returns the same report sections that were previously composed by multiple
+individual report endpoints:
+- `interestIncome`
+- `penaltyIncome`
+- `portfolioSummary`
+- `paymentsHistory`
+- `closedLoans`
+
+The endpoint is additive. The individual report endpoints remain valid explicit
+read contracts for narrower use cases.
+
 ### Create-loan endpoints
 The backend owns validation and derived schedule generation.
 The frontend sends the declared inputs and displays the backend result.

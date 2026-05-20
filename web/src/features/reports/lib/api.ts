@@ -1,9 +1,5 @@
 ﻿import {
-  ReportClosedLoansResponse,
-  ReportInterestIncomeResponse,
-  ReportPaymentsHistoryResponse,
-  ReportPenaltyIncomeResponse,
-  ReportPortfolioSummaryResponse,
+  ReportOverviewResponse,
   ReportsPageData,
 } from "@/features/reports/types";
 import {
@@ -65,79 +61,27 @@ export async function getReportsPageData({
   to: string;
 }): Promise<ReportsPageResult> {
   const baseUrl = getBackendBaseUrl();
-  const rangeParams = new URLSearchParams({
+  const searchParams = new URLSearchParams({
     from,
     to,
+    limit: "20",
   });
 
-  const [interestIncome, penaltyIncome, portfolioSummary, paymentsHistory, closedLoans] =
-    await Promise.all([
-      fetchJson<ReportInterestIncomeResponse>(
-        `/reports/interest-income?${rangeParams.toString()}`,
-      ),
-      fetchJson<ReportPenaltyIncomeResponse>(
-        `/reports/penalty-income?${rangeParams.toString()}`,
-      ),
-      fetchJson<ReportPortfolioSummaryResponse>(
-        `/reports/portfolio-summary?asOf=${encodeURIComponent(to)}`,
-      ),
-      fetchJson<ReportPaymentsHistoryResponse>(
-        `/reports/payments-history?${rangeParams.toString()}&limit=20`,
-      ),
-      fetchJson<ReportClosedLoansResponse>(
-        `/reports/closed-loans?${rangeParams.toString()}&limit=20`,
-      ),
-    ]);
+  const overview = await fetchJson<ReportOverviewResponse>(
+    `/reports/overview?${searchParams.toString()}`,
+  );
 
-  if (!interestIncome.ok) {
+  if (!overview.ok) {
     return {
       ok: false,
-      error: interestIncome.error,
-      meta: { baseUrl },
-    };
-  }
-
-  if (!penaltyIncome.ok) {
-    return {
-      ok: false,
-      error: penaltyIncome.error,
-      meta: { baseUrl },
-    };
-  }
-
-  if (!portfolioSummary.ok) {
-    return {
-      ok: false,
-      error: portfolioSummary.error,
-      meta: { baseUrl },
-    };
-  }
-
-  if (!paymentsHistory.ok) {
-    return {
-      ok: false,
-      error: paymentsHistory.error,
-      meta: { baseUrl },
-    };
-  }
-
-  if (!closedLoans.ok) {
-    return {
-      ok: false,
-      error: closedLoans.error,
+      error: overview.error,
       meta: { baseUrl },
     };
   }
 
   return {
     ok: true,
-    data: {
-      interestIncome: interestIncome.data,
-      penaltyIncome: penaltyIncome.data,
-      portfolioSummary: portfolioSummary.data,
-      paymentsHistory: paymentsHistory.data,
-      closedLoans: closedLoans.data,
-    },
+    data: overview.data,
     meta: { baseUrl },
   };
 }

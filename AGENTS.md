@@ -136,6 +136,7 @@ Permitir abrir la app y entender de inmediato:
 - `POST /api/payments`
 - `GET /api/reports/interest-income`
 - `GET /api/reports/portfolio-summary`
+- `GET /api/reports/overview`
 - `GET /api/clients`
 - `GET /api/clients/:id`
 

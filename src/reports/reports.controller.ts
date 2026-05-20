@@ -7,6 +7,21 @@ import { ReportsService } from './reports.service';
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
+  @Get('overview')
+  getOverview(
+    @CurrentAuthUser() authUser: AuthenticatedAppUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.reportsService.getOverview(
+      from,
+      to,
+      authUser.lenderId,
+      this.parseLimit(limit),
+    );
+  }
+
   @Get('interest-income')
   getInterestIncome(
     @CurrentAuthUser() authUser: AuthenticatedAppUser,

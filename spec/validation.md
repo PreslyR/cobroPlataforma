@@ -71,6 +71,7 @@ These scenarios should remain covered by tests.
 ### Reporting and read composition
 1. read models do not silently own write-side transitions
 2. debt breakdown and payoff preview remain authoritative for the UI
+3. the reports overview endpoint must preserve the same section contracts as the individual reports endpoints
 
 ### Auth and tenant scope
 1. protected operational endpoints reject requests without bearer token

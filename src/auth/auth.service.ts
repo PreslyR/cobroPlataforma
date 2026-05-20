@@ -11,12 +11,32 @@ type SupabaseJwtPayload = JWTPayload & {
   role?: string;
 };
 
+type InternalAuthUser = {
+  id: string;
+  email: string;
+  role: UserRole;
+  lenderId: string;
+  lender: {
+    name: string;
+  };
+};
+
+const INTERNAL_USER_CACHE_TTL_MS = 5_000;
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private readonly jwks: ReturnType<typeof createRemoteJWKSet>;
   private readonly issuer: string;
   private readonly audience: string;
+  private readonly internalUserCacheByEmail = new Map<
+    string,
+    { expiresAt: number; user: InternalAuthUser }
+  >();
+  private readonly internalUserLookupInFlightByEmail = new Map<
+    string,
+    Promise<InternalAuthUser>
+  >();
 
   constructor(
     private readonly configService: ConfigService,
@@ -61,10 +81,39 @@ export class AuthService {
       throw new UnauthorizedException('Auth token is missing the email claim.');
     }
 
-    const user = await measureAsync(this.logger, 'auth.userLookup', () =>
-      this.prisma.user.findFirst({
+    const user = await this.resolveInternalUser(payload.email);
+
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      lenderId: user.lenderId,
+      lenderName: user.lender.name,
+      supabaseUserId: payload.sub,
+    };
+  }
+
+  private async resolveInternalUser(email: string): Promise<InternalAuthUser> {
+    const cacheKey = email.toLowerCase();
+    const cached = this.internalUserCacheByEmail.get(cacheKey);
+
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.user;
+    }
+
+    if (cached) {
+      this.internalUserCacheByEmail.delete(cacheKey);
+    }
+
+    const inFlight = this.internalUserLookupInFlightByEmail.get(cacheKey);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const lookupPromise = measureAsync(this.logger, 'auth.userLookup', async () => {
+      const user = await this.prisma.user.findFirst({
         where: {
-          email: payload.email,
+          email,
           isActive: true,
           role: UserRole.ADMIN,
           lender: {
@@ -82,22 +131,33 @@ export class AuthService {
             },
           },
         },
-      }),
-    );
+      });
 
-    if (!user) {
-      throw new UnauthorizedException(
-        'There is no active internal admin user linked to this auth account.',
-      );
-    }
+      if (!user) {
+        throw new UnauthorizedException(
+          'There is no active internal admin user linked to this auth account.',
+        );
+      }
 
-    return {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      lenderId: user.lenderId,
-      lenderName: user.lender.name,
-      supabaseUserId: payload.sub,
-    };
+      return user;
+    })
+      .then((user) => {
+        this.internalUserCacheByEmail.set(cacheKey, {
+          expiresAt: Date.now() + INTERNAL_USER_CACHE_TTL_MS,
+          user,
+        });
+
+        return user;
+      })
+      .finally(() => {
+        if (
+          this.internalUserLookupInFlightByEmail.get(cacheKey) === lookupPromise
+        ) {
+          this.internalUserLookupInFlightByEmail.delete(cacheKey);
+        }
+      });
+
+    this.internalUserLookupInFlightByEmail.set(cacheKey, lookupPromise);
+    return lookupPromise;
   }
 }

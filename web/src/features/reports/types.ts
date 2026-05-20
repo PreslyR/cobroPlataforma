@@ -90,3 +90,5 @@ export type ReportsPageData = {
   paymentsHistory: ReportPaymentsHistoryResponse;
   closedLoans: ReportClosedLoansResponse;
 };
+
+export type ReportOverviewResponse = ReportsPageData;

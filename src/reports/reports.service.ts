@@ -13,6 +13,76 @@ export class ReportsService {
     private loansService: LoansService,
   ) {}
 
+  async getOverview(
+    from?: string,
+    to?: string,
+    lenderId?: string,
+    limit: number = 20,
+  ) {
+    const fromDate = this.parseRequiredDateOnly(from, 'from');
+    const toDate = this.parseRequiredDateOnly(to, 'to');
+    const where = this.buildPaymentRangeWhere(fromDate, toDate, lenderId);
+    const fromKey = this.toDateKey(fromDate);
+    const toKey = this.toDateKey(toDate);
+
+    const incomeTotalsPromise = measureAsync(
+      this.logger,
+      'reports.getOverview.incomeTotals',
+      () =>
+        this.prisma.payment.aggregate({
+          where,
+          _sum: {
+            totalAmount: true,
+            appliedToInterest: true,
+            appliedToPenalty: true,
+          },
+          _count: {
+            id: true,
+          },
+        }),
+    );
+
+    const [incomeTotals, portfolioSummary, paymentsHistory, closedLoans] =
+      await Promise.all([
+        incomeTotalsPromise,
+        this.getPortfolioSummary(toKey, lenderId),
+        this.getPaymentsHistoryForRange(
+          fromDate,
+          toDate,
+          lenderId,
+          where,
+          limit,
+          incomeTotalsPromise.then((totals) => totals._count.id),
+        ),
+        this.getClosedLoans(fromKey, toKey, lenderId, limit),
+      ]);
+
+    return {
+      interestIncome: {
+        from: fromDate,
+        to: toDate,
+        lenderId: lenderId ?? null,
+        paymentsCount: incomeTotals._count.id,
+        totalCollectedAmount: incomeTotals._sum.totalAmount ?? 0,
+        totalInterestIncome: incomeTotals._sum.appliedToInterest ?? 0,
+      },
+      penaltyIncome: {
+        from: fromDate,
+        to: toDate,
+        lenderId: lenderId ?? null,
+        paymentsCount: incomeTotals._count.id,
+        totalCollectedAmount: incomeTotals._sum.totalAmount ?? 0,
+        totalPenaltyIncome: incomeTotals._sum.appliedToPenalty ?? 0,
+      },
+      portfolioSummary,
+      paymentsHistory: {
+        ...paymentsHistory,
+        totalCount: incomeTotals._count.id,
+      },
+      closedLoans,
+    };
+  }
+
   async getInterestIncome(from?: string, to?: string, lenderId?: string) {
     const fromDate = this.parseRequiredDateOnly(from, 'from');
     const toDate = this.parseRequiredDateOnly(to, 'to');
@@ -139,8 +209,25 @@ export class ReportsService {
     const toDate = this.parseRequiredDateOnly(to, 'to');
     const where = this.buildPaymentRangeWhere(fromDate, toDate, lenderId);
 
+    return this.getPaymentsHistoryForRange(
+      fromDate,
+      toDate,
+      lenderId,
+      where,
+      limit,
+    );
+  }
+
+  private async getPaymentsHistoryForRange(
+    fromDate: Date,
+    toDate: Date,
+    lenderId: string | undefined,
+    where: ReturnType<ReportsService['buildPaymentRangeWhere']>,
+    limit: number,
+    knownTotalCount?: number | Promise<number>,
+  ) {
     const [totalCount, payments] = await Promise.all([
-      this.prisma.payment.count({ where }),
+      knownTotalCount ?? this.prisma.payment.count({ where }),
       this.prisma.payment.findMany({
         where,
         orderBy: [{ paymentDate: 'desc' }, { createdAt: 'desc' }],
