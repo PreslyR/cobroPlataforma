@@ -1,10 +1,40 @@
-﻿import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+﻿import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { LoanStatus } from '@prisma/client';
 import { LoansService } from '../loans/loans.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 import { measureAsync } from '../common/perf/perf-logger';
+
+type ActiveLoanSnapshot = Awaited<
+  ReturnType<LoansService['getActiveLoanSnapshots']>
+>['snapshots'][number];
+
+type ClientPortfolioOperationalStatus = 'OVERDUE' | 'DUE_TODAY' | 'CURRENT';
+
+type ClientPortfolioItem = {
+  clientId: string;
+  lenderId: string;
+  fullName: string;
+  documentNumber: string;
+  email: string | null;
+  phone: string | null;
+  activeLoansCount: number;
+  overdueLoansCount: number;
+  totalCollectibleToday: number;
+  outstandingBalance: number;
+  penaltyPending: number;
+  dueTodayAmount: number;
+  overdueAmount: number;
+  oldestDueDate: Date | null;
+  daysLate: number | null;
+  operationalStatus: ClientPortfolioOperationalStatus;
+};
 
 @Injectable()
 export class ClientsService {
@@ -109,7 +139,11 @@ export class ClientsService {
     return client;
   }
 
-  async update(id: string, updateClientDto: UpdateClientDto, lenderId?: string) {
+  async update(
+    id: string,
+    updateClientDto: UpdateClientDto,
+    lenderId?: string,
+  ) {
     await this.findOne(id, lenderId);
 
     return this.prisma.client.update({
@@ -148,105 +182,138 @@ export class ClientsService {
     search?: string;
   }) {
     const asOfDate = this.parseDateOnlyOrNow(filters.asOf);
-    const asOfKey = this.toDateKey(asOfDate);
     const normalizedSearch = filters.search?.trim() ?? '';
 
-    const clients = await measureAsync(this.logger, 'clients.getPortfolio.listClients', () =>
-      this.prisma.client.findMany({
-        where: {
-          isActive: true,
-          ...(filters.lenderId && { lenderId: filters.lenderId }),
-          ...(normalizedSearch && {
-            fullName: {
-              contains: normalizedSearch,
-              mode: 'insensitive',
-            },
-          }),
-        },
-        select: {
-          id: true,
-          lenderId: true,
-          fullName: true,
-          documentNumber: true,
-          email: true,
-          phone: true,
-          loans: {
-            where: {
-              status: LoanStatus.ACTIVE,
-            },
-            select: {
-              id: true,
-            },
-          },
-        },
-        orderBy: { fullName: 'asc' },
-      }),
+    const { asOfDate: snapshotAsOfDate, snapshots } = await measureAsync(
+      this.logger,
+      'clients.getPortfolio.activeLoanSnapshots',
+      () =>
+        this.loansService.getActiveLoanSnapshots({
+          asOf: asOfDate,
+          lenderId: filters.lenderId,
+          search: normalizedSearch,
+          logLabel: 'clients.getPortfolio',
+        }),
     );
 
-    const items = [];
+    if (snapshots.length === 0) {
+      return {
+        asOfDate: snapshotAsOfDate,
+        lenderId: filters.lenderId ?? null,
+        search: normalizedSearch,
+        summary: {
+          clientsWithActiveLoans: 0,
+          clientsWithOverdueLoans: 0,
+          totalCollectibleToday: 0,
+        },
+        count: 0,
+        items: [],
+      };
+    }
 
-    await measureAsync(this.logger, `clients.getPortfolio.snapshots x${clients.length}`, async () => {
-      for (const client of clients) {
-        if (client.loans.length === 0) {
-          continue;
+    const snapshotsByClientId = new Map<string, ActiveLoanSnapshot[]>();
+    for (const snapshot of snapshots) {
+      const clientSnapshots =
+        snapshotsByClientId.get(snapshot.loan.clientId) ?? [];
+      clientSnapshots.push(snapshot);
+      snapshotsByClientId.set(snapshot.loan.clientId, clientSnapshots);
+    }
+
+    const clientIds = Array.from(snapshotsByClientId.keys());
+    const clients = await measureAsync(
+      this.logger,
+      `clients.getPortfolio.loadClients x${clientIds.length}`,
+      () =>
+        this.prisma.client.findMany({
+          where: {
+            id: { in: clientIds },
+            isActive: true,
+            ...(filters.lenderId && { lenderId: filters.lenderId }),
+          },
+          select: {
+            id: true,
+            lenderId: true,
+            fullName: true,
+            documentNumber: true,
+            email: true,
+            phone: true,
+          },
+          orderBy: { fullName: 'asc' },
+        }),
+    );
+
+    const items: ClientPortfolioItem[] = [];
+
+    await measureAsync(
+      this.logger,
+      `clients.getPortfolio.composeItems x${clients.length}`,
+      async () => {
+        for (const client of clients) {
+          const activeLoans = snapshotsByClientId.get(client.id) ?? [];
+
+          if (activeLoans.length === 0) {
+            continue;
+          }
+
+          const activeLoansCount = activeLoans.length;
+          const overdueLoansCount = activeLoans.filter(
+            (loan) => loan.overdue,
+          ).length;
+          const totalCollectibleToday = this.normalizeMoney(
+            activeLoans.reduce(
+              (sum, loan) => sum + loan.totalCollectibleToday,
+              0,
+            ),
+          );
+          const outstandingBalance = this.normalizeMoney(
+            activeLoans.reduce((sum, loan) => sum + loan.outstandingBalance, 0),
+          );
+          const penaltyPending = this.normalizeMoney(
+            activeLoans.reduce((sum, loan) => sum + loan.penalty.pending, 0),
+          );
+          const dueTodayAmount = this.normalizeMoney(
+            activeLoans.reduce((sum, loan) => sum + loan.dueTodayAmount, 0),
+          );
+          const overdueAmount = this.normalizeMoney(
+            activeLoans.reduce((sum, loan) => sum + loan.overdueAmount, 0),
+          );
+          const oldestDueDate =
+            activeLoans
+              .map((loan) => loan.oldestDueDate)
+              .filter((value): value is Date => Boolean(value))
+              .sort((left, right) => left.getTime() - right.getTime())[0] ??
+            null;
+          const daysLate = oldestDueDate
+            ? this.diffDaysUtc(oldestDueDate, snapshotAsOfDate)
+            : null;
+          const operationalStatus =
+            overdueLoansCount > 0
+              ? 'OVERDUE'
+              : dueTodayAmount > 0
+                ? 'DUE_TODAY'
+                : 'CURRENT';
+
+          items.push({
+            clientId: client.id,
+            lenderId: client.lenderId,
+            fullName: client.fullName,
+            documentNumber: client.documentNumber,
+            email: client.email,
+            phone: client.phone,
+            activeLoansCount,
+            overdueLoansCount,
+            totalCollectibleToday,
+            outstandingBalance,
+            penaltyPending,
+            dueTodayAmount,
+            overdueAmount,
+            oldestDueDate,
+            daysLate,
+            operationalStatus,
+          });
         }
-
-        const activeLoans = await Promise.all(
-          client.loans.map((loan) => this.loansService.getDebtBreakdown(loan.id, asOfKey)),
-        );
-
-        const activeLoansCount = activeLoans.length;
-        const overdueLoansCount = activeLoans.filter((loan) => loan.overdue).length;
-        const totalCollectibleToday = this.normalizeMoney(
-          activeLoans.reduce((sum, loan) => sum + loan.totalCollectibleToday, 0),
-        );
-        const outstandingBalance = this.normalizeMoney(
-          activeLoans.reduce((sum, loan) => sum + loan.outstandingBalance, 0),
-        );
-        const penaltyPending = this.normalizeMoney(
-          activeLoans.reduce((sum, loan) => sum + loan.penalty.pending, 0),
-        );
-        const dueTodayAmount = this.normalizeMoney(
-          activeLoans.reduce((sum, loan) => sum + loan.dueTodayAmount, 0),
-        );
-        const overdueAmount = this.normalizeMoney(
-          activeLoans.reduce((sum, loan) => sum + loan.overdueAmount, 0),
-        );
-        const oldestDueDate =
-          activeLoans
-            .map((loan) => loan.oldestDueDate)
-            .filter((value): value is Date => Boolean(value))
-            .sort()[0] ?? null;
-        const daysLate = oldestDueDate
-          ? this.diffDaysUtc(oldestDueDate, asOfDate)
-          : null;
-        const operationalStatus =
-          overdueLoansCount > 0
-            ? 'OVERDUE'
-            : dueTodayAmount > 0
-              ? 'DUE_TODAY'
-              : 'CURRENT';
-
-        items.push({
-          clientId: client.id,
-          lenderId: client.lenderId,
-          fullName: client.fullName,
-          documentNumber: client.documentNumber,
-          email: client.email,
-          phone: client.phone,
-          activeLoansCount,
-          overdueLoansCount,
-          totalCollectibleToday,
-          outstandingBalance,
-          penaltyPending,
-          dueTodayAmount,
-          overdueAmount,
-          oldestDueDate,
-          daysLate,
-          operationalStatus,
-        });
-      }
-    });
+      },
+    );
 
     items.sort((left, right) => {
       const leftRank = this.getClientOperationalRank(left.operationalStatus);
@@ -256,7 +323,10 @@ export class ClientsService {
         return leftRank - rightRank;
       }
 
-      if (left.operationalStatus === 'OVERDUE' && right.operationalStatus === 'OVERDUE') {
+      if (
+        left.operationalStatus === 'OVERDUE' &&
+        right.operationalStatus === 'OVERDUE'
+      ) {
         return (right.daysLate ?? 0) - (left.daysLate ?? 0);
       }
 
@@ -264,12 +334,14 @@ export class ClientsService {
     });
 
     return {
-      asOfDate,
+      asOfDate: snapshotAsOfDate,
       lenderId: filters.lenderId ?? null,
       search: normalizedSearch,
       summary: {
         clientsWithActiveLoans: items.length,
-        clientsWithOverdueLoans: items.filter((item) => item.overdueLoansCount > 0).length,
+        clientsWithOverdueLoans: items.filter(
+          (item) => item.overdueLoansCount > 0,
+        ).length,
         totalCollectibleToday: this.normalizeMoney(
           items.reduce((sum, item) => sum + item.totalCollectibleToday, 0),
         ),
@@ -283,96 +355,105 @@ export class ClientsService {
     const asOfDate = this.parseDateOnlyOrNow(asOf);
     const asOfKey = this.toDateKey(asOfDate);
 
-    const client = await measureAsync(this.logger, 'clients.getClientDebt.loadClient', () =>
-      this.prisma.client.findFirst({
-        where: {
-          id,
-          ...(lenderId && { lenderId }),
-        },
-        select: {
-        id: true,
-        lenderId: true,
-        fullName: true,
-        documentNumber: true,
-        email: true,
-        phone: true,
-        address: true,
-        notes: true,
-        isActive: true,
-        lender: {
-          select: {
-            id: true,
-            name: true,
+    const client = await measureAsync(
+      this.logger,
+      'clients.getClientDebt.loadClient',
+      () =>
+        this.prisma.client.findFirst({
+          where: {
+            id,
+            ...(lenderId && { lenderId }),
           },
-        },
-        loans: {
-          orderBy: { createdAt: 'desc' },
           select: {
             id: true,
-            type: true,
-            status: true,
-            principalAmount: true,
-            currentPrincipal: true,
-            installmentAmount: true,
-            totalInstallments: true,
-            paymentFrequency: true,
-            startDate: true,
-            expectedEndDate: true,
-            updatedAt: true,
-            payments: {
-              orderBy: [{ paymentDate: 'desc' }, { createdAt: 'desc' }],
-              take: 1,
+            lenderId: true,
+            fullName: true,
+            documentNumber: true,
+            email: true,
+            phone: true,
+            address: true,
+            notes: true,
+            isActive: true,
+            lender: {
               select: {
                 id: true,
+                name: true,
+              },
+            },
+            loans: {
+              orderBy: { createdAt: 'desc' },
+              select: {
+                id: true,
+                type: true,
+                status: true,
+                principalAmount: true,
+                currentPrincipal: true,
+                installmentAmount: true,
+                totalInstallments: true,
+                paymentFrequency: true,
+                startDate: true,
+                expectedEndDate: true,
+                updatedAt: true,
+                payments: {
+                  orderBy: [{ paymentDate: 'desc' }, { createdAt: 'desc' }],
+                  take: 1,
+                  select: {
+                    id: true,
+                    totalAmount: true,
+                    appliedToInterest: true,
+                    appliedToPrincipal: true,
+                    appliedToPenalty: true,
+                    paymentDate: true,
+                    isEarlySettlement: true,
+                  },
+                },
+              },
+            },
+            payments: {
+              orderBy: [{ paymentDate: 'desc' }, { createdAt: 'desc' }],
+              take: 10,
+              select: {
+                id: true,
+                loanId: true,
                 totalAmount: true,
                 appliedToInterest: true,
                 appliedToPrincipal: true,
                 appliedToPenalty: true,
                 paymentDate: true,
+                createdAt: true,
                 isEarlySettlement: true,
+                earlySettlementInterestModeUsed: true,
+                interestDaysCharged: true,
+                loan: {
+                  select: {
+                    type: true,
+                    status: true,
+                  },
+                },
               },
             },
           },
-        },
-        payments: {
-          orderBy: [{ paymentDate: 'desc' }, { createdAt: 'desc' }],
-          take: 10,
-          select: {
-            id: true,
-            loanId: true,
-            totalAmount: true,
-            appliedToInterest: true,
-            appliedToPrincipal: true,
-            appliedToPenalty: true,
-            paymentDate: true,
-            createdAt: true,
-            isEarlySettlement: true,
-            earlySettlementInterestModeUsed: true,
-            interestDaysCharged: true,
-            loan: {
-              select: {
-                type: true,
-                status: true,
-              },
-            },
-          },
-        },
-        },
-      }),
+        }),
     );
 
     if (!client) {
       throw new NotFoundException(`Client with ID ${id} not found`);
     }
 
-    const activeLoanRecords = client.loans.filter((loan) => loan.status === LoanStatus.ACTIVE);
-    const inactiveLoanRecords = client.loans.filter((loan) => loan.status !== LoanStatus.ACTIVE);
+    const activeLoanRecords = client.loans.filter(
+      (loan) => loan.status === LoanStatus.ACTIVE,
+    );
+    const inactiveLoanRecords = client.loans.filter(
+      (loan) => loan.status !== LoanStatus.ACTIVE,
+    );
     const activeLoans = await measureAsync(
       this.logger,
       `clients.getClientDebt.activeLoanSnapshots x${activeLoanRecords.length}`,
       () =>
         Promise.all(
-          activeLoanRecords.map((loan) => this.loansService.getDebtBreakdown(loan.id, asOfKey)),
+          activeLoanRecords.map((loan) =>
+            this.loansService.getDebtBreakdown(loan.id, asOfKey),
+          ),
         ),
     );
 
@@ -407,9 +488,14 @@ export class ClientsService {
       };
     });
 
-    const overdueLoansCount = activeLoanItems.filter((loan) => (loan.daysLate ?? 0) > 0).length;
+    const overdueLoansCount = activeLoanItems.filter(
+      (loan) => (loan.daysLate ?? 0) > 0,
+    ).length;
     const totalCollectibleToday = this.normalizeMoney(
-      activeLoanItems.reduce((sum, loan) => sum + loan.totalCollectibleToday, 0),
+      activeLoanItems.reduce(
+        (sum, loan) => sum + loan.totalCollectibleToday,
+        0,
+      ),
     );
     const outstandingBalance = this.normalizeMoney(
       activeLoanItems.reduce((sum, loan) => sum + loan.outstandingBalance, 0),
@@ -462,7 +548,8 @@ export class ClientsService {
         paymentDate: payment.paymentDate,
         createdAt: payment.createdAt,
         isEarlySettlement: payment.isEarlySettlement,
-        earlySettlementInterestModeUsed: payment.earlySettlementInterestModeUsed,
+        earlySettlementInterestModeUsed:
+          payment.earlySettlementInterestModeUsed,
         interestDaysCharged: payment.interestDaysCharged,
       })),
     };
@@ -518,7 +605,7 @@ export class ClientsService {
     return Math.abs(value) < 0.01 ? 0 : value;
   }
 
-  private getClientOperationalRank(status: 'OVERDUE' | 'DUE_TODAY' | 'CURRENT') {
+  private getClientOperationalRank(status: ClientPortfolioOperationalStatus) {
     if (status === 'OVERDUE') {
       return 0;
     }
@@ -530,5 +617,3 @@ export class ClientsService {
     return 2;
   }
 }
-
-
