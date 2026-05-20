@@ -379,7 +379,7 @@ describe("LoansService", () => {
     expect(
       penaltyService.generateFixedInstallmentPenaltiesIncremental,
     ).toHaveBeenCalledWith("loan-fixed", new Date("2026-05-02T00:00:00.000Z"), {
-      preserveFutureState: false,
+      preserveFutureState: true,
     });
 
     expect(result.snapshots).toHaveLength(2);
@@ -419,5 +419,100 @@ describe("LoansService", () => {
         overduePending: 20000,
       },
     });
+  });
+
+  it("does not repeat operational repairs already ensured for the same snapshot date", async () => {
+    const snapshotPrisma = {
+      loan: {
+        findMany: jest.fn(async () => [
+          {
+            id: "loan-fixed",
+            lenderId: "lender-1",
+            clientId: "client-1",
+            type: LoanType.FIXED_INSTALLMENTS,
+            status: LoanStatus.ACTIVE,
+            principalAmount: 100000,
+            currentPrincipal: 100000,
+            monthlyInterestRate: null,
+            installmentAmount: 30000,
+            totalInstallments: 4,
+            paymentFrequency: PaymentFrequency.WEEKLY,
+            earlySettlementInterestMode: EarlySettlementInterestMode.FULL_MONTH,
+            startDate: new Date("2026-04-10T00:00:00.000Z"),
+            expectedEndDate: new Date("2026-05-08T00:00:00.000Z"),
+            client: {
+              fullName: "Ana Fixed",
+            },
+          },
+          {
+            id: "loan-monthly",
+            lenderId: "lender-1",
+            clientId: "client-2",
+            type: LoanType.MONTHLY_INTEREST,
+            status: LoanStatus.ACTIVE,
+            principalAmount: 200000,
+            currentPrincipal: 200000,
+            monthlyInterestRate: 0.1,
+            installmentAmount: null,
+            totalInstallments: null,
+            paymentFrequency: PaymentFrequency.MONTHLY,
+            earlySettlementInterestMode: EarlySettlementInterestMode.FULL_MONTH,
+            startDate: new Date("2026-03-01T00:00:00.000Z"),
+            expectedEndDate: null,
+            client: {
+              fullName: "Bruno Monthly",
+            },
+          },
+        ]),
+      },
+      loanPenalty: {
+        findMany: jest.fn(async () => []),
+      },
+      loanInterest: {
+        findMany: jest.fn(async () => []),
+      },
+      installment: {
+        findMany: jest.fn(async () => []),
+      },
+      payment: {
+        groupBy: jest.fn(async () => []),
+      },
+    };
+    const interestService = {
+      ensureMonthlyInterestScheduleUpTo: jest.fn(async () => 0),
+    };
+    const penaltyService = {
+      generateFixedInstallmentPenaltiesIncremental: jest.fn(async () => []),
+      generateMonthlyInterestPenaltiesIncremental: jest.fn(async () => []),
+    };
+    const snapshotService = new LoansService(
+      snapshotPrisma as never,
+      interestService as never,
+      penaltyService as never,
+    );
+
+    await snapshotService.getActiveLoanSnapshots({
+      asOf: "2026-05-02",
+      lenderId: "lender-1",
+    });
+    await snapshotService.getActiveLoanSnapshots({
+      asOf: "2026-05-02",
+      lenderId: "lender-1",
+    });
+
+    expect(snapshotPrisma.loan.findMany).toHaveBeenCalledTimes(2);
+    expect(snapshotPrisma.loanPenalty.findMany).toHaveBeenCalledTimes(2);
+    expect(snapshotPrisma.loanInterest.findMany).toHaveBeenCalledTimes(2);
+    expect(snapshotPrisma.installment.findMany).toHaveBeenCalledTimes(2);
+    expect(snapshotPrisma.payment.groupBy).toHaveBeenCalledTimes(2);
+    expect(
+      interestService.ensureMonthlyInterestScheduleUpTo,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      penaltyService.generateFixedInstallmentPenaltiesIncremental,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      penaltyService.generateMonthlyInterestPenaltiesIncremental,
+    ).toHaveBeenCalledTimes(1);
   });
 });
