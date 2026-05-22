@@ -57,6 +57,12 @@ function buildMonthlyInterestLoan() {
   };
 }
 
+function buildProjectionService(result = { interests: [], pendingPenalties: [] }) {
+  return {
+    projectLoanAccruals: jest.fn(() => result),
+  };
+}
+
 describe("PaymentDistributionService - weekly fixed installments", () => {
   it("simulates a weekly partial payment with clean split between interest and capital", async () => {
     const prisma = {
@@ -64,6 +70,7 @@ describe("PaymentDistributionService - weekly fixed installments", () => {
         findUnique: jest.fn(async () => buildWeeklyLoan()),
       },
       payment: {
+        findMany: jest.fn(async () => []),
         aggregate: jest
           .fn()
           .mockResolvedValueOnce({
@@ -92,6 +99,9 @@ describe("PaymentDistributionService - weekly fixed installments", () => {
           { interestPending: 5000 },
         ]),
       },
+      loanPenalty: {
+        findMany: jest.fn(async () => []),
+      },
     };
 
     const interestService = {};
@@ -104,6 +114,7 @@ describe("PaymentDistributionService - weekly fixed installments", () => {
       prisma as never,
       interestService as never,
       penaltyService as never,
+      buildProjectionService() as never,
     );
 
     const result = await service.simulatePayment(
@@ -129,6 +140,7 @@ describe("PaymentDistributionService - weekly fixed installments", () => {
         update: jest.fn(async ({ data }) => ({ id: "loan-weekly", ...data })),
       },
       payment: {
+        findMany: jest.fn(async () => []),
         aggregate: jest
           .fn()
           .mockResolvedValueOnce({
@@ -201,6 +213,7 @@ describe("PaymentDistributionService - weekly fixed installments", () => {
       prisma as never,
       interestService as never,
       penaltyService as never,
+      buildProjectionService() as never,
     );
 
     const result = await service.processPayment(
@@ -236,6 +249,7 @@ describe("PaymentDistributionService - biweekly fixed installments", () => {
         findUnique: jest.fn(async () => buildBiweeklyLoan()),
       },
       payment: {
+        findMany: jest.fn(async () => []),
         aggregate: jest
           .fn()
           .mockResolvedValueOnce({
@@ -264,6 +278,9 @@ describe("PaymentDistributionService - biweekly fixed installments", () => {
           { interestPending: 5000 },
         ]),
       },
+      loanPenalty: {
+        findMany: jest.fn(async () => []),
+      },
     };
 
     const interestService = {};
@@ -276,6 +293,7 @@ describe("PaymentDistributionService - biweekly fixed installments", () => {
       prisma as never,
       interestService as never,
       penaltyService as never,
+      buildProjectionService() as never,
     );
 
     const result = await service.simulatePayment(
@@ -301,6 +319,7 @@ describe("PaymentDistributionService - biweekly fixed installments", () => {
         update: jest.fn(async ({ data }) => ({ id: "loan-biweekly", ...data })),
       },
       payment: {
+        findMany: jest.fn(async () => []),
         aggregate: jest
           .fn()
           .mockResolvedValueOnce({
@@ -351,6 +370,9 @@ describe("PaymentDistributionService - biweekly fixed installments", () => {
           { interestPending: 5000 },
         ]),
       },
+      loanPenalty: {
+        findMany: jest.fn(async () => []),
+      },
     };
 
     const interestService = {
@@ -373,6 +395,7 @@ describe("PaymentDistributionService - biweekly fixed installments", () => {
       prisma as never,
       interestService as never,
       penaltyService as never,
+      buildProjectionService() as never,
     );
 
     const result = await service.processPayment(
@@ -409,6 +432,7 @@ describe("PaymentDistributionService - monthly fixed installments", () => {
         findUnique: jest.fn(async () => buildMonthlyLoan()),
       },
       payment: {
+        findMany: jest.fn(async () => []),
         aggregate: jest
           .fn()
           .mockResolvedValueOnce({
@@ -437,6 +461,9 @@ describe("PaymentDistributionService - monthly fixed installments", () => {
           { interestPending: 5000 },
         ]),
       },
+      loanPenalty: {
+        findMany: jest.fn(async () => []),
+      },
     };
 
     const interestService = {};
@@ -449,6 +476,7 @@ describe("PaymentDistributionService - monthly fixed installments", () => {
       prisma as never,
       interestService as never,
       penaltyService as never,
+      buildProjectionService() as never,
     );
 
     const result = await service.simulatePayment(
@@ -546,6 +574,7 @@ describe("PaymentDistributionService - monthly fixed installments", () => {
       prisma as never,
       interestService as never,
       penaltyService as never,
+      buildProjectionService() as never,
     );
 
     const result = await service.processPayment(
@@ -571,6 +600,86 @@ describe("PaymentDistributionService - monthly fixed installments", () => {
       },
     });
     expect(prisma.installment.update).toHaveBeenCalledTimes(4);
+  });
+});
+
+describe("PaymentDistributionService - pure simulations", () => {
+  it("simulates monthly-interest payments from projection without materializing accruals", async () => {
+    const prisma = {
+      loan: {
+        findUnique: jest.fn(async () => ({
+          ...buildMonthlyInterestLoan(),
+          monthlyInterestRate: 0.1,
+        })),
+      },
+      loanPenalty: {
+        findMany: jest.fn(async () => []),
+      },
+      loanInterest: {
+        findMany: jest.fn(async () => []),
+      },
+      payment: {
+        findMany: jest.fn(async () => []),
+      },
+    };
+    const interestService = {
+      ensureMonthlyInterestScheduleUpTo: jest.fn(async () => 0),
+      getTotalPendingInterest: jest.fn(async () => 0),
+    };
+    const penaltyService = {
+      generateMonthlyInterestPenaltiesIncremental: jest.fn(async () => []),
+      getTotalPendingPenalty: jest.fn(async () => 0),
+    };
+    const projectionService = buildProjectionService({
+      pendingPenalties: [
+        {
+          id: "projected-penalty-1",
+          installmentId: null,
+          daysLate: 5,
+          penaltyAmount: 3000,
+          wasCharged: false,
+          periodStartDate: new Date("2026-03-12T00:00:00.000Z"),
+          periodEndDate: new Date("2026-04-12T00:00:00.000Z"),
+        },
+      ],
+      interests: [
+        {
+          id: "projected-interest-1",
+          periodStartDate: new Date("2026-03-12T00:00:00.000Z"),
+          periodEndDate: new Date("2026-04-12T00:00:00.000Z"),
+          interestAmount: 40000,
+          interestPaid: 33000,
+          interestPending: 7000,
+        },
+      ],
+    });
+
+    const service = new PaymentDistributionService(
+      prisma as never,
+      interestService as never,
+      penaltyService as never,
+      projectionService as never,
+    );
+
+    const result = await service.simulatePayment(
+      "loan-monthly-interest",
+      15000,
+      new Date("2026-04-17T00:00:00.000Z"),
+    );
+
+    expect(result.distribution).toEqual({
+      totalAmount: 15000,
+      appliedToPenalty: 3000,
+      appliedToInterest: 7000,
+      appliedToPrincipal: 5000,
+      remaining: 0,
+    });
+    expect(
+      interestService.ensureMonthlyInterestScheduleUpTo,
+    ).not.toHaveBeenCalled();
+    expect(
+      penaltyService.generateMonthlyInterestPenaltiesIncremental,
+    ).not.toHaveBeenCalled();
   });
 });
 
@@ -622,6 +731,7 @@ describe("PaymentDistributionService - monthly interest", () => {
       prisma as never,
       interestService as never,
       penaltyService as never,
+      buildProjectionService() as never,
     );
 
     const result = await service.processPayment(
@@ -698,6 +808,7 @@ describe("PaymentDistributionService - monthly interest", () => {
       prisma as never,
       interestService as never,
       penaltyService as never,
+      buildProjectionService() as never,
     );
 
     const result = await service.processPayment(
@@ -797,6 +908,7 @@ describe("PaymentDistributionService - monthly interest", () => {
       prisma as never,
       interestService as never,
       penaltyService as never,
+      buildProjectionService() as never,
     );
 
     const result = await service.processPayment(
@@ -890,6 +1002,7 @@ describe("PaymentDistributionService - monthly interest", () => {
       prisma as never,
       interestService as never,
       penaltyService as never,
+      buildProjectionService() as never,
     );
 
     const result = await service.processPayment(
@@ -990,6 +1103,7 @@ describe("PaymentDistributionService - monthly interest", () => {
       prisma as never,
       interestService as never,
       penaltyService as never,
+      buildProjectionService() as never,
     );
 
     const result = await service.processPayment(
@@ -1067,6 +1181,7 @@ describe("PaymentDistributionService - monthly interest", () => {
       prisma as never,
       interestService as never,
       penaltyService as never,
+      buildProjectionService() as never,
     );
 
     await expect(

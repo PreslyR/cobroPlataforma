@@ -67,6 +67,8 @@ These scenarios should remain covered by tests.
 ### Historical behavior
 1. historical reads do not desmaterialize current penalty state
 2. backdated payments do recalculate business state
+3. current-date reads do not create, delete, or update penalty rows
+4. payment simulation does not materialize interest or penalty rows
 
 ### Reporting and read composition
 1. read models do not silently own write-side transitions
@@ -97,8 +99,9 @@ The following assertions are important enough that they should always have direc
 3. Penalty, interest, and principal must never collapse into one unlabeled business value.
 4. Early settlement must fail atomically if the amount is insufficient.
 5. Historical reads must not mutate current operational state.
-6. Tenant scope must come from authenticated identity, not from an arbitrary URL parameter.
-7. Public client-intake capture must not bypass the internal approval boundary.
+6. Current operational reads and payment simulations must not materialize accrual rows.
+7. Tenant scope must come from authenticated identity, not from an arbitrary URL parameter.
+8. Public client-intake capture must not bypass the internal approval boundary.
 
 ## Change Checklist
 Before considering a business change done, verify:

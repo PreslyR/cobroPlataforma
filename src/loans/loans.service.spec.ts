@@ -37,7 +37,7 @@ describe("LoansService", () => {
       },
     };
 
-    service = new LoansService(prisma as never, {} as never, {} as never);
+    service = new LoansService(prisma as never);
   });
 
   it("calculates expectedEndDate for fixed installments using the installment schedule", async () => {
@@ -264,7 +264,12 @@ describe("LoansService", () => {
           {
             id: "penalty-1",
             loanId: "loan-monthly",
+            installmentId: null,
+            daysLate: 1,
             penaltyAmount: 5000,
+            wasCharged: false,
+            calculatedAt: new Date("2026-05-02T00:00:00.000Z"),
+            periodStartDate: new Date("2026-04-01T00:00:00.000Z"),
             periodEndDate: new Date("2026-05-01T00:00:00.000Z"),
           },
         ]),
@@ -337,13 +342,12 @@ describe("LoansService", () => {
         ]),
       },
       payment: {
-        groupBy: jest.fn(async () => [
+        findMany: jest.fn(async () => [
           {
             loanId: "loan-fixed",
-            _sum: {
-              appliedToPrincipal: 25000,
-              appliedToInterest: 5000,
-            },
+            paymentDate: new Date("2026-04-17T00:00:00.000Z"),
+            appliedToPrincipal: 25000,
+            appliedToInterest: 5000,
           },
         ]),
       },
@@ -355,11 +359,7 @@ describe("LoansService", () => {
       generateFixedInstallmentPenaltiesIncremental: jest.fn(async () => []),
       generateMonthlyInterestPenaltiesIncremental: jest.fn(async () => []),
     };
-    const snapshotService = new LoansService(
-      snapshotPrisma as never,
-      interestService as never,
-      penaltyService as never,
-    );
+    const snapshotService = new LoansService(snapshotPrisma as never);
 
     const result = await snapshotService.getActiveLoanSnapshots({
       asOf: "2026-05-02",
@@ -370,17 +370,14 @@ describe("LoansService", () => {
     expect(snapshotPrisma.loanPenalty.findMany).toHaveBeenCalledTimes(1);
     expect(snapshotPrisma.loanInterest.findMany).toHaveBeenCalledTimes(1);
     expect(snapshotPrisma.installment.findMany).toHaveBeenCalledTimes(1);
-    expect(snapshotPrisma.payment.groupBy).toHaveBeenCalledTimes(1);
-
-    expect(interestService.ensureMonthlyInterestScheduleUpTo).toHaveBeenCalledWith(
-      "loan-monthly",
-      new Date("2026-05-02T00:00:00.000Z"),
-    );
+    expect(snapshotPrisma.payment.findMany).toHaveBeenCalledTimes(1);
+    expect(interestService.ensureMonthlyInterestScheduleUpTo).not.toHaveBeenCalled();
     expect(
       penaltyService.generateFixedInstallmentPenaltiesIncremental,
-    ).toHaveBeenCalledWith("loan-fixed", new Date("2026-05-02T00:00:00.000Z"), {
-      preserveFutureState: true,
-    });
+    ).not.toHaveBeenCalled();
+    expect(
+      penaltyService.generateMonthlyInterestPenaltiesIncremental,
+    ).not.toHaveBeenCalled();
 
     expect(result.snapshots).toHaveLength(2);
     expect(result.snapshots[0]).toMatchObject({
@@ -393,7 +390,10 @@ describe("LoansService", () => {
       overdue: true,
       dueTodayAmount: 30000,
       overdueAmount: 30000,
-      totalCollectibleToday: 60000,
+      totalCollectibleToday: 62000,
+      penalty: {
+        pending: 2000,
+      },
       installments: {
         totalPending: 90000,
         dueTodayCount: 1,
@@ -409,19 +409,19 @@ describe("LoansService", () => {
       dueToday: false,
       overdue: true,
       dueTodayAmount: 0,
-      overdueAmount: 20000,
-      totalCollectibleToday: 25000,
+      overdueAmount: 40000,
+      totalCollectibleToday: 50000,
       penalty: {
-        pending: 5000,
+        pending: 10000,
       },
       interest: {
-        totalPending: 20000,
-        overduePending: 20000,
+        totalPending: 60000,
+        overduePending: 40000,
       },
     });
   });
 
-  it("does not repeat operational repairs already ensured for the same snapshot date", async () => {
+  it("builds repeated snapshots without operational write repairs", async () => {
     const snapshotPrisma = {
       loan: {
         findMany: jest.fn(async () => [
@@ -475,7 +475,7 @@ describe("LoansService", () => {
         findMany: jest.fn(async () => []),
       },
       payment: {
-        groupBy: jest.fn(async () => []),
+        findMany: jest.fn(async () => []),
       },
     };
     const interestService = {
@@ -485,11 +485,7 @@ describe("LoansService", () => {
       generateFixedInstallmentPenaltiesIncremental: jest.fn(async () => []),
       generateMonthlyInterestPenaltiesIncremental: jest.fn(async () => []),
     };
-    const snapshotService = new LoansService(
-      snapshotPrisma as never,
-      interestService as never,
-      penaltyService as never,
-    );
+    const snapshotService = new LoansService(snapshotPrisma as never);
 
     await snapshotService.getActiveLoanSnapshots({
       asOf: "2026-05-02",
@@ -504,15 +500,15 @@ describe("LoansService", () => {
     expect(snapshotPrisma.loanPenalty.findMany).toHaveBeenCalledTimes(2);
     expect(snapshotPrisma.loanInterest.findMany).toHaveBeenCalledTimes(2);
     expect(snapshotPrisma.installment.findMany).toHaveBeenCalledTimes(2);
-    expect(snapshotPrisma.payment.groupBy).toHaveBeenCalledTimes(2);
+    expect(snapshotPrisma.payment.findMany).toHaveBeenCalledTimes(2);
     expect(
       interestService.ensureMonthlyInterestScheduleUpTo,
-    ).toHaveBeenCalledTimes(1);
+    ).not.toHaveBeenCalled();
     expect(
       penaltyService.generateFixedInstallmentPenaltiesIncremental,
-    ).toHaveBeenCalledTimes(1);
+    ).not.toHaveBeenCalled();
     expect(
       penaltyService.generateMonthlyInterestPenaltiesIncremental,
-    ).toHaveBeenCalledTimes(1);
+    ).not.toHaveBeenCalled();
   });
 });

@@ -3,6 +3,10 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { InterestCalculationService } from './interest-calculation.service';
 import { PenaltyCalculationService } from './penalty-calculation.service';
 import {
+  AccrualProjectionResult,
+  AccrualProjectionService,
+} from './accrual-projection.service';
+import {
   EarlySettlementInterestMode,
   LoanStatus,
   LoanType,
@@ -22,6 +26,7 @@ export class PaymentDistributionService {
     private prisma: PrismaService,
     private interestService: InterestCalculationService,
     private penaltyService: PenaltyCalculationService,
+    private accrualProjectionService: AccrualProjectionService = new AccrualProjectionService(),
   ) {}
 
   async processPayment(
@@ -546,8 +551,10 @@ export class PaymentDistributionService {
         status: true,
         principalAmount: true,
         currentPrincipal: true,
+        monthlyInterestRate: true,
         installmentAmount: true,
         totalInstallments: true,
+        startDate: true,
         earlySettlementInterestMode: true,
       },
     });
@@ -560,24 +567,10 @@ export class PaymentDistributionService {
       throw new BadRequestException('Cannot simulate payment on inactive loan');
     }
 
-    if (loan.type === LoanType.MONTHLY_INTEREST) {
-      await this.interestService.ensureMonthlyInterestScheduleUpTo(
-        loanId,
-        paymentDate,
-      );
-
-      await this.penaltyService.generateMonthlyInterestPenaltiesIncremental(
-        loanId,
-        paymentDate,
-      );
-    }
-
-    if (loan.type === LoanType.FIXED_INSTALLMENTS) {
-      await this.penaltyService.generateFixedInstallmentPenaltiesIncremental(
-        loanId,
-        paymentDate,
-      );
-    }
+    const projection = await this.buildAccrualProjectionForSimulation(
+      loan,
+      paymentDate,
+    );
 
     if (options.isEarlySettlement) {
       if (loan.type !== LoanType.MONTHLY_INTEREST) {
@@ -591,6 +584,7 @@ export class PaymentDistributionService {
         amount,
         paymentDate,
         options.earlySettlementInterestModeOverride,
+        projection,
       );
 
       return {
@@ -618,9 +612,11 @@ export class PaymentDistributionService {
       };
     }
 
-    const totalPendingPenalty = await this.penaltyService.getTotalPendingPenalty(
-      loanId,
-      paymentDate,
+    const totalPendingPenalty = this.normalizeMoney(
+      projection.pendingPenalties.reduce(
+        (sum, penalty) => sum + penalty.penaltyAmount,
+        0,
+      ),
     );
 
     let remainingAmount = amount;
@@ -665,7 +661,12 @@ export class PaymentDistributionService {
           ),
         );
       } else {
-        const totalPendingInterest = await this.interestService.getTotalPendingInterest(loanId);
+        const totalPendingInterest = this.normalizeMoney(
+          projection.interests.reduce(
+            (sum, interest) => sum + interest.interestPending,
+            0,
+          ),
+        );
         if (totalPendingInterest > 0 && remainingAmount > 0) {
           const amountToInterest = Math.min(remainingAmount, totalPendingInterest);
           distribution.appliedToInterest = amountToInterest;
@@ -699,32 +700,32 @@ export class PaymentDistributionService {
     };
   }
 
-  private async previewMonthlyEarlySettlement(
+  private async buildAccrualProjectionForSimulation(
     loan: {
       id: string;
       type: LoanType;
+      status: LoanStatus;
       principalAmount: number;
-      currentPrincipal: number;
-      installmentAmount: number | null;
-      totalInstallments: number | null;
-      earlySettlementInterestMode: EarlySettlementInterestMode | null;
+      monthlyInterestRate: number | null;
+      startDate: Date;
     },
-    totalAmount: number,
     paymentDate: Date,
-    overrideMode?: EarlySettlementInterestMode,
   ) {
-    const paymentDateOnly = this.toUtcDateOnly(paymentDate);
-    const modeUsed =
-      overrideMode ?? loan.earlySettlementInterestMode ?? EarlySettlementInterestMode.FULL_MONTH;
-
-    const [pendingPenalties, interests, currentOutstandingPrincipal] = await Promise.all([
+    const [penalties, interests, installments, payments] = await Promise.all([
       this.prisma.loanPenalty.findMany({
-        where: {
-          loanId: loan.id,
-          wasCharged: false,
-          OR: [{ periodEndDate: null }, { periodEndDate: { lte: paymentDate } }],
-        },
+        where: { loanId: loan.id },
         orderBy: { calculatedAt: 'asc' },
+        select: {
+          id: true,
+          loanId: true,
+          installmentId: true,
+          daysLate: true,
+          penaltyAmount: true,
+          wasCharged: true,
+          calculatedAt: true,
+          periodStartDate: true,
+          periodEndDate: true,
+        },
       }),
       this.prisma.loanInterest.findMany({
         where: { loanId: loan.id },
@@ -738,14 +739,76 @@ export class PaymentDistributionService {
           interestPending: true,
         },
       }),
-      this.getCurrentOutstandingPrincipal(loan.id, loan),
+      loan.type === LoanType.FIXED_INSTALLMENTS
+        ? this.prisma.installment.findMany({
+            where: { loanId: loan.id },
+            orderBy: { installmentNumber: 'asc' },
+            select: {
+              id: true,
+              dueDate: true,
+              amount: true,
+              status: true,
+            },
+          })
+        : Promise.resolve([]),
+      this.prisma.payment.findMany({
+        where: { loanId: loan.id },
+        orderBy: { paymentDate: 'asc' },
+        select: {
+          paymentDate: true,
+          appliedToPrincipal: true,
+        },
+      }),
     ]);
 
-    const penaltyPending = this.normalizeMoney(
-      pendingPenalties.reduce((sum, penalty) => sum + penalty.penaltyAmount, 0),
+    return this.accrualProjectionService.projectLoanAccruals({
+      loan,
+      asOfDate: paymentDate,
+      penalties,
+      interests,
+      installments,
+      payments,
+    });
+  }
+
+  private async previewMonthlyEarlySettlement(
+    loan: {
+      id: string;
+      type: LoanType;
+      status: LoanStatus;
+      principalAmount: number;
+      currentPrincipal: number;
+      monthlyInterestRate: number | null;
+      installmentAmount: number | null;
+      totalInstallments: number | null;
+      startDate: Date;
+      earlySettlementInterestMode: EarlySettlementInterestMode | null;
+    },
+    totalAmount: number,
+    paymentDate: Date,
+    overrideMode?: EarlySettlementInterestMode,
+    projection?: AccrualProjectionResult,
+  ) {
+    const paymentDateOnly = this.toUtcDateOnly(paymentDate);
+    const modeUsed =
+      overrideMode ?? loan.earlySettlementInterestMode ?? EarlySettlementInterestMode.FULL_MONTH;
+
+    const effectiveProjection =
+      projection ??
+      (await this.buildAccrualProjectionForSimulation(loan, paymentDate));
+    const currentOutstandingPrincipal = await this.getCurrentOutstandingPrincipal(
+      loan.id,
+      loan,
     );
 
-    const overdueInterests = interests.filter((interest) => {
+    const penaltyPending = this.normalizeMoney(
+      effectiveProjection.pendingPenalties.reduce(
+        (sum, penalty) => sum + penalty.penaltyAmount,
+        0,
+      ),
+    );
+
+    const overdueInterests = effectiveProjection.interests.filter((interest) => {
       if (interest.interestPending <= PaymentDistributionService.MONEY_EPSILON) {
         return false;
       }
@@ -757,7 +820,7 @@ export class PaymentDistributionService {
       overdueInterests.reduce((sum, interest) => sum + interest.interestPending, 0),
     );
 
-    const currentInterest = interests.find((interest) =>
+    const currentInterest = effectiveProjection.interests.find((interest) =>
       this.isDateWithinPeriod(paymentDateOnly, interest.periodStartDate, interest.periodEndDate),
     );
 

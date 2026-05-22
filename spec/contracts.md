@@ -208,6 +208,10 @@ The UI must be able to distinguish:
 - pending penalty
 - total collectible or payoff amount
 
+Read endpoints are query contracts. They may project interest or penalty up to
+the requested date, but they must not create, delete, or update financial rows
+as a side effect of serving the request.
+
 ### Reports overview endpoint
 `GET /api/reports/overview?from=YYYY-MM-DD&to=YYYY-MM-DD&limit=20`
 is the preferred contract for the reports page.
@@ -230,6 +234,10 @@ The frontend sends the declared inputs and displays the backend result.
 ### Payment endpoints
 The backend owns distribution and closure logic.
 The frontend must not attempt to simulate settlement locally.
+
+Payment simulation is also a read contract. It must use backend projection
+logic, but it must not materialize interest or penalty rows before returning the
+simulation result.
 
 ### Payoff preview endpoint
 The payoff preview contract is authoritative for settlement amounts.

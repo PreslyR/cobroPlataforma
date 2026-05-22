@@ -12,8 +12,10 @@ describe("PenaltyCalculationService - weekly fixed installments", () => {
       },
       loanPenalty: {
         deleteMany: jest.fn(async () => ({ count: 0 })),
+        findMany: jest.fn(async () => []),
         findFirst: jest.fn(async () => null),
         create: jest.fn(async ({ data }) => ({ id: "penalty-1", ...data })),
+        createMany: jest.fn(async () => ({ count: 1 })),
       },
       loan: {
         findUnique: jest.fn(async () => ({
@@ -41,17 +43,19 @@ describe("PenaltyCalculationService - weekly fixed installments", () => {
       new Date("2026-04-11T00:00:00.000Z"),
     );
 
-    expect(tx.installment.update).toHaveBeenCalledWith({
-      where: { id: "inst-1" },
+    expect(tx.installment.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["inst-1"] } },
       data: { status: "LATE" },
     });
-    expect(tx.loanPenalty.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        loanId: "loan-weekly",
-        installmentId: "inst-1",
-        daysLate: 7,
-        penaltyAmount: 2000,
-      }),
+    expect(tx.loanPenalty.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          loanId: "loan-weekly",
+          installmentId: "inst-1",
+          daysLate: 7,
+          penaltyAmount: 2000,
+        }),
+      ],
     });
     expect(penalties).toHaveLength(1);
   });
@@ -68,8 +72,10 @@ describe("PenaltyCalculationService - biweekly fixed installments", () => {
       },
       loanPenalty: {
         deleteMany: jest.fn(async () => ({ count: 0 })),
+        findMany: jest.fn(async () => []),
         findFirst: jest.fn(async () => null),
         create: jest.fn(async ({ data }) => ({ id: "penalty-1", ...data })),
+        createMany: jest.fn(async () => ({ count: 1 })),
       },
       loan: {
         findUnique: jest.fn(async () => ({
@@ -97,17 +103,19 @@ describe("PenaltyCalculationService - biweekly fixed installments", () => {
       new Date("2026-04-11T00:00:00.000Z"),
     );
 
-    expect(tx.installment.update).toHaveBeenCalledWith({
-      where: { id: "inst-1" },
+    expect(tx.installment.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["inst-1"] } },
       data: { status: "LATE" },
     });
-    expect(tx.loanPenalty.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        loanId: "loan-biweekly",
-        installmentId: "inst-1",
-        daysLate: 14,
-        penaltyAmount: 3000,
-      }),
+    expect(tx.loanPenalty.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          loanId: "loan-biweekly",
+          installmentId: "inst-1",
+          daysLate: 14,
+          penaltyAmount: 3000,
+        }),
+      ],
     });
     expect(penalties).toHaveLength(1);
   });
@@ -125,8 +133,10 @@ describe("PenaltyCalculationService - monthly fixed installments", () => {
       },
       loanPenalty: {
         deleteMany: jest.fn(async () => ({ count: 0 })),
+        findMany: jest.fn(async () => []),
         findFirst: jest.fn(async () => null),
         create: jest.fn(async ({ data }) => ({ id: "penalty-1", ...data })),
+        createMany: jest.fn(async () => ({ count: 1 })),
       },
       loan: {
         findUnique: jest.fn(async () => ({
@@ -154,17 +164,19 @@ describe("PenaltyCalculationService - monthly fixed installments", () => {
       new Date("2026-04-11T00:00:00.000Z"),
     );
 
-    expect(tx.installment.update).toHaveBeenCalledWith({
-      where: { id: "inst-1" },
+    expect(tx.installment.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["inst-1"] } },
       data: { status: "LATE" },
     });
-    expect(tx.loanPenalty.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        loanId: "loan-monthly",
-        installmentId: "inst-1",
-        daysLate: 30,
-        penaltyAmount: 6000,
-      }),
+    expect(tx.loanPenalty.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          loanId: "loan-monthly",
+          installmentId: "inst-1",
+          daysLate: 30,
+          penaltyAmount: 6000,
+        }),
+      ],
     });
     expect(penalties).toHaveLength(1);
   });
@@ -181,8 +193,10 @@ describe("PenaltyCalculationService - read-safe historical queries", () => {
       },
       loanPenalty: {
         deleteMany: jest.fn(async () => ({ count: 0 })),
+        findMany: jest.fn(async () => []),
         findFirst: jest.fn(async () => null),
         create: jest.fn(async ({ data }) => ({ id: "penalty-1", ...data })),
+        createMany: jest.fn(async () => ({ count: 1 })),
       },
       loan: {
         findUnique: jest.fn(async () => ({
@@ -212,14 +226,19 @@ describe("PenaltyCalculationService - read-safe historical queries", () => {
     );
 
     expect(tx.loanPenalty.deleteMany).not.toHaveBeenCalled();
-    expect(tx.installment.updateMany).not.toHaveBeenCalled();
-    expect(tx.loanPenalty.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        loanId: "loan-historical",
-        installmentId: "inst-1",
-        daysLate: 4,
-        penaltyAmount: 1000,
-      }),
+    expect(tx.installment.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["inst-1"] } },
+      data: { status: "LATE" },
+    });
+    expect(tx.loanPenalty.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          loanId: "loan-historical",
+          installmentId: "inst-1",
+          daysLate: 4,
+          penaltyAmount: 1000,
+        }),
+      ],
     });
   });
 });

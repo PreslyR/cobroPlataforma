@@ -125,7 +125,7 @@ Responsibilities:
 - loan detail and summary
 - debt snapshot building
 - due today / overdue / portfolio operational views
-- operational read repairs currently needed by the model
+- read-side accrual projection without mutating financial rows
 
 This module is the main owner of:
 - loan state
@@ -302,9 +302,9 @@ These are known and accepted for now.
 - faster to build
 - less strict than a repository/query-service approach
 
-3. Some operational reads still trigger repair logic
-- pragmatic for now
-- not a fully separated read model architecture
+3. Read-side accruals are projected in memory
+- operational reads should not create/delete/update financial rows
+- payment and settlement flows remain responsible for write-side materialization
 
 ## What We Are Not Doing Right Now
 - microservices

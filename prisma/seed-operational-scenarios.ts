@@ -8,6 +8,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { InterestCalculationService } from '../src/payments/services/interest-calculation.service';
 import { PenaltyCalculationService } from '../src/payments/services/penalty-calculation.service';
 import { PaymentDistributionService } from '../src/payments/services/payment-distribution.service';
+import { AccrualProjectionService } from '../src/payments/services/accrual-projection.service';
 
 type ScenarioSummary = {
   code: string;
@@ -39,11 +40,13 @@ async function main() {
 
   const interestService = new InterestCalculationService(prisma);
   const penaltyService = new PenaltyCalculationService(prisma);
-  const loansService = new LoansService(prisma, interestService, penaltyService);
+  const accrualProjectionService = new AccrualProjectionService();
+  const loansService = new LoansService(prisma, accrualProjectionService);
   const paymentDistributionService = new PaymentDistributionService(
     prisma,
     interestService,
     penaltyService,
+    accrualProjectionService,
   );
 
   const scenarios: ScenarioSummary[] = [];

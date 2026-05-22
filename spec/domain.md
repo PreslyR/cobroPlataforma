@@ -173,6 +173,17 @@ This includes both:
 Penalty is tracked in `loan_penalties`.
 Penalty rows are separate from both capital and interest.
 
+### Read-side penalty projection
+Dashboard, portfolio, loan detail, client debt, reports, payoff preview, and
+payment simulation must not create, delete, or update penalty rows merely
+because the user opened a screen or changed `asOf`.
+
+Those reads may project accrued penalty up to the requested date in memory.
+The projection is an operational answer, not a persisted business event.
+
+Persisted penalty rows are materialized only by real write flows such as
+payment registration, early settlement, or an explicit operational command/job.
+
 ### Fixed-installment penalty
 Rules currently implemented:
 1. penalty base: overdue installment amount
@@ -241,6 +252,8 @@ The system distinguishes between:
 ### Historical read
 Reading a past date must not silently destroy current operational state.
 A historical query is allowed to produce a past operational picture, but it must not desmaterialize current penalty state just because the user navigated to an older date.
+The same rule applies to current-date reads: opening a current operational
+screen is not a financial mutation.
 
 ### Backdated payment
 A payment registered with a past date is a real business event.
@@ -264,8 +277,8 @@ They reflect persisted financial events and derived summaries.
 - payoff preview
 
 ## Known Scope Notes
-1. The current architecture still contains some repair-on-read behavior in backend services.
-2. That is an implementation choice, not a change to financial invariants.
+1. Read-side accruals are projected in memory for operational screens.
+2. Write-side payment flows still materialize the financial rows needed to apply a real payment.
 3. `DAILY_INTEREST` should not be treated as product-complete.
 
 ## Short Version
