@@ -77,6 +77,13 @@ function preventImplicitSubmit(event: KeyboardEvent<HTMLFormElement>) {
   }
 }
 
+function appendRefreshParam(href: string, value: string) {
+  const url = new URL(href, "http://local.app");
+  url.searchParams.set("refresh", value);
+
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
 export function PaymentFormShell({
   loanData,
   initialDate,
@@ -122,6 +129,18 @@ export function PaymentFormShell({
     (loanData.loan.earlySettlementInterestMode === "PRORATED_BY_DAYS"
       ? "PRORATED_BY_DAYS"
       : "FULL_MONTH");
+  const successfulPaymentId =
+    submitState.status === "success" ? submitState.data.payment.id : null;
+  const freshLoanDetailHref = successfulPaymentId
+    ? appendRefreshParam(loanDetailHref, successfulPaymentId)
+    : loanDetailHref;
+  const freshDashboardHref = successfulPaymentId
+    ? appendRefreshParam(dashboardHref, successfulPaymentId)
+    : dashboardHref;
+  const freshSelectionHref =
+    successfulPaymentId && selectionHref
+      ? appendRefreshParam(selectionHref, successfulPaymentId)
+      : selectionHref;
   const hasUnsavedChanges =
     paymentDate !== initialDate ||
     amount.trim().length > 0 ||
@@ -289,7 +308,7 @@ export function PaymentFormShell({
         backOnClick={handleCancelIntent}
         title="Registrar pago"
         subtitle={`${formatLoanType(loanData.loan.type)} | ${loanData.loan.id.slice(0, 8)}`}
-        secondaryHref={loanDetailHref}
+        secondaryHref={freshLoanDetailHref}
         secondaryLabel="Prestamo"
       />
 
@@ -602,15 +621,27 @@ export function PaymentFormShell({
               </div>
 
               <div className={styles.resultActions}>
-                <Link className={styles.linkButtonSecondary} href={loanDetailHref}>
+                <Link
+                  className={styles.linkButtonSecondary}
+                  href={freshLoanDetailHref}
+                  prefetch={false}
+                >
                   Volver al prestamo
                 </Link>
-                {selectionHref ? (
-                  <Link className={styles.linkButton} href={selectionHref}>
+                {freshSelectionHref ? (
+                  <Link
+                    className={styles.linkButton}
+                    href={freshSelectionHref}
+                    prefetch={false}
+                  >
                     Registrar otro pago
                   </Link>
                 ) : (
-                  <Link className={styles.linkButton} href={dashboardHref}>
+                  <Link
+                    className={styles.linkButton}
+                    href={freshDashboardHref}
+                    prefetch={false}
+                  >
                     Volver al inicio
                   </Link>
                 )}

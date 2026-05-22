@@ -11,6 +11,7 @@ const API_BASE_URL =
 
 type ServerBackendFetchOptions = {
   revalidate?: number;
+  cache?: RequestCache;
   init?: RequestInit;
 };
 
@@ -38,15 +39,20 @@ export async function fetchBackendFromServer(
   headers.set("X-Trace-Id", traceId);
   headers.set("X-Frontend-Source", "next-server");
 
+  const cacheOptions =
+    options.cache !== undefined
+      ? { cache: options.cache }
+      : options.revalidate !== undefined
+        ? { next: { revalidate: options.revalidate } }
+        : {};
+
   return measureServerPerf(
     "backend.fetch",
     async () => {
       const response = await fetch(`${API_BASE_URL}${path}`, {
         ...options.init,
         headers,
-        ...(options.revalidate !== undefined
-          ? { next: { revalidate: options.revalidate } }
-          : {}),
+        ...cacheOptions,
       });
 
       return response;
@@ -54,6 +60,7 @@ export async function fetchBackendFromServer(
     {
       ...pathMeta,
       method,
+      cache: options.cache ?? null,
       revalidate: options.revalidate ?? null,
       traceId,
     },

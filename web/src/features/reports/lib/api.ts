@@ -23,12 +23,10 @@ type ReportsPageResult =
       meta: { baseUrl: string };
     };
 
-const READ_REVALIDATE_SECONDS = 10;
-
 async function fetchJson<T>(path: string): Promise<FetchResult<T>> {
   try {
     const response = await fetchBackendFromServer(path, {
-      revalidate: READ_REVALIDATE_SECONDS,
+      cache: "no-store",
     });
 
     if (!response.ok) {
