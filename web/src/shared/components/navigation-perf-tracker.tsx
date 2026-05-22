@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 
 type PendingNavigation = {
   from: string;
@@ -38,8 +38,6 @@ function logClientPerf(
 
 export function NavigationPerfTracker() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const queryString = searchParams.toString();
   const currentRouteRef = useRef<string | null>(null);
   const pendingNavigationRef = useRef<PendingNavigation | null>(null);
 
@@ -95,7 +93,7 @@ export function NavigationPerfTracker() {
       return;
     }
 
-    const route = queryString ? `${pathname}?${queryString}` : pathname;
+    const route = getCurrentLocation();
 
     if (currentRouteRef.current === null) {
       currentRouteRef.current = route;
@@ -122,7 +120,7 @@ export function NavigationPerfTracker() {
       route,
       ms: Number((performance.now() - pendingNavigation.startedAt).toFixed(1)),
     });
-  }, [pathname, queryString]);
+  }, [pathname]);
 
   return null;
 }

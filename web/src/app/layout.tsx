@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import { PersistentRootShell } from "@/shared/components/persistent-root-shell";
 import "./globals.css";
@@ -22,9 +21,7 @@ export default function RootLayout({
   return (
     <html lang="es" className="h-full antialiased">
       <body className="min-h-full flex flex-col">
-        <Suspense fallback={children}>
-          <PersistentRootShell>{children}</PersistentRootShell>
-        </Suspense>
+        <PersistentRootShell>{children}</PersistentRootShell>
       </body>
     </html>
   );

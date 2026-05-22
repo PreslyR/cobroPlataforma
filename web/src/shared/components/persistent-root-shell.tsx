@@ -1,7 +1,7 @@
 ﻿"use client";
 
-import { ReactNode, useLayoutEffect } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { ReactNode, useEffect, useLayoutEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { AppShell } from "@/shared/components/app-shell";
 import { NavigationPerfTracker } from "@/shared/components/navigation-perf-tracker";
 import { SessionInactivityGuard } from "@/shared/components/session-inactivity-guard";
@@ -44,7 +44,11 @@ export function PersistentRootShell({
   children,
 }: PersistentRootShellProps) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const [locationSearch, setLocationSearch] = useState("");
+
+  useEffect(() => {
+    setLocationSearch(window.location.search);
+  }, [pathname]);
 
   useLayoutEffect(() => {
     const documentElement = document.documentElement;
@@ -68,6 +72,9 @@ export function PersistentRootShell({
     };
   }, [pathname]);
 
+  const searchParams = new URLSearchParams(
+    locationSearch.startsWith("?") ? locationSearch.slice(1) : locationSearch,
+  );
   const today = toDateInputValue(new Date());
   const routeDate = clampDateInputValue(
     searchParams.get("date") ?? searchParams.get("to") ?? today,
