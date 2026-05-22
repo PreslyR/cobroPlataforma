@@ -81,7 +81,6 @@ export function LoginForm() {
 
     writeSessionActivityTimestamp();
     router.replace("/");
-    router.refresh();
   }
 
   return (
