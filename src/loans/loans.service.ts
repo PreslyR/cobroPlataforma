@@ -76,6 +76,13 @@ type LoanSnapshotPaymentRow = LoanSnapshotPaymentSummary & {
   paymentDate: Date;
 };
 
+const FREQUENCY_DAYS: Record<string, number> = {
+  DAILY: 1,
+  WEEKLY: 7,
+  BIWEEKLY: 15,
+  MONTHLY: 30,
+};
+
 @Injectable()
 export class LoansService {
   private readonly logger = new Logger(LoansService.name);
@@ -264,11 +271,12 @@ export class LoansService {
   ): Date {
     switch (frequency) {
       case PaymentFrequency.DAILY:
-        return this.addDaysUtc(startDate, installmentNumber);
       case PaymentFrequency.WEEKLY:
-        return this.addDaysUtc(startDate, installmentNumber * 7);
       case PaymentFrequency.BIWEEKLY:
-        return this.addDaysUtc(startDate, installmentNumber * 14);
+        return this.addDaysUtc(
+          startDate,
+          installmentNumber * (FREQUENCY_DAYS[frequency] ?? 0),
+        );
       case PaymentFrequency.MONTHLY:
         return this.addMonthsClampedUtc(startDate, installmentNumber);
     }

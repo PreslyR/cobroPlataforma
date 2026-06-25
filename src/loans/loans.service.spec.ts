@@ -119,22 +119,22 @@ describe("LoansService", () => {
       expect.objectContaining({
         installmentNumber: 1,
         amount: 30000,
-        dueDate: new Date("2026-04-07T00:00:00.000Z"),
+        dueDate: new Date("2026-04-08T00:00:00.000Z"),
       }),
       expect.objectContaining({
         installmentNumber: 2,
         amount: 30000,
-        dueDate: new Date("2026-04-21T00:00:00.000Z"),
+        dueDate: new Date("2026-04-23T00:00:00.000Z"),
       }),
       expect.objectContaining({
         installmentNumber: 3,
         amount: 30000,
-        dueDate: new Date("2026-05-05T00:00:00.000Z"),
+        dueDate: new Date("2026-05-08T00:00:00.000Z"),
       }),
       expect.objectContaining({
         installmentNumber: 4,
         amount: 30000,
-        dueDate: new Date("2026-05-19T00:00:00.000Z"),
+        dueDate: new Date("2026-05-23T00:00:00.000Z"),
       }),
     ]);
   });
